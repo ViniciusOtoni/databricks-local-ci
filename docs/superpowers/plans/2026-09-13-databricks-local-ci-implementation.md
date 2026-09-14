@@ -514,7 +514,7 @@ git commit -m "feat: add local_spark_session and local_delta_table_path fixtures
 - Create: `examples/example_job/src/example_job/transform.py`
 - Test: `examples/example_job/tests/test_transform.py`
 
-- [ ] **Step 1: Create the example project's `pyproject.toml`**
+- [x] **Step 1: Create the example project's `pyproject.toml`**
 
 `examples/example_job/pyproject.toml`:
 ```toml
@@ -542,14 +542,14 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 ```
 
-- [ ] **Step 2: Create the package init file**
+- [x] **Step 2: Create the package init file**
 
 `examples/example_job/src/example_job/__init__.py`:
 ```python
 ```
 (empty file — just marks the directory as a package)
 
-- [ ] **Step 3: Write the failing test**
+- [x] **Step 3: Write the failing test**
 
 `examples/example_job/tests/test_transform.py`:
 ```python
@@ -568,7 +568,7 @@ def test_summarize_sales_by_category(local_spark_session):
     assert rows == {"books": 15.0, "toys": 20.0}
 ```
 
-- [ ] **Step 4: Run the test inside the container to verify it fails**
+- [x] **Step 4: Run the test inside the container to verify it fails**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
@@ -576,7 +576,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/ex
 ```
 Expected: `ModuleNotFoundError: No module named 'example_job.transform'`.
 
-- [ ] **Step 5: Write the implementation**
+- [x] **Step 5: Write the implementation**
 
 `examples/example_job/src/example_job/transform.py`:
 ```python
@@ -596,7 +596,7 @@ def summarize_sales_by_category(sales_df: DataFrame) -> DataFrame:
     return sales_df.groupBy("category").agg(F.sum("amount").alias("total_amount"))
 ```
 
-- [ ] **Step 6: Run the test inside the container to verify it passes**
+- [x] **Step 6: Run the test inside the container to verify it passes**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
@@ -604,7 +604,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/ex
 ```
 Expected: `1 passed`
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add examples/example_job/pyproject.toml examples/example_job/src/example_job/__init__.py \
