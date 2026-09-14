@@ -395,7 +395,12 @@ this module exists):
 [project.entry-points.pytest11]
 databricks_local_ci = "databricks_local_ci.fixtures"
 ```
-Then reinstall so the entry point takes effect: `pip install -e ".[dev]"`.
+Then, **on the host** (activate `.venv` first: `source .venv/Scripts/activate`),
+reinstall so the entry point takes effect there too: `pip install -e ".[dev]"`.
+This is separate from the container's own install in Step 2 below — both need it,
+since editable installs cache entry-point metadata that only refreshes on
+reinstall, and an un-refreshed host venv would crash every `pytest` invocation
+there the same way Task 1's premature registration did.
 
 - [ ] **Step 1: Write the failing test**
 
