@@ -14,10 +14,11 @@ def test_example_job_real_run_writes_expected_summary(local_spark_session, tmp_p
     result = run_entrypoint(
         "example_job.main",
         args=["--input-path", input_path, "--output-path", output_path],
+        timeout=120,
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Wrote summary to" in result.stdout
+    assert "Wrote summary to" in result.stdout, result.stdout
 
     summary_df = local_spark_session.read.format("delta").load(output_path)
     rows = {row["category"]: row["total_amount"] for row in summary_df.collect()}
