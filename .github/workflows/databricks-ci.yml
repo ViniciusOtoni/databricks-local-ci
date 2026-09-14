@@ -36,7 +36,7 @@ jobs:
           docker run --rm -v "${{ github.workspace }}:/workspace/project" \
             -w "/workspace/project/${{ inputs.package_dir }}" \
             databricks-local-ci:${{ inputs.dbr_version }} \
-            bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
+            bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && rm -rf dist && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
 
   deploy:
     needs: build-and-test
@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: databricks/setup-cli@main
+      - uses: databricks/setup-cli@v1.12.1
 
       - name: Deploy bundle
         working-directory: ${{ inputs.package_dir }}

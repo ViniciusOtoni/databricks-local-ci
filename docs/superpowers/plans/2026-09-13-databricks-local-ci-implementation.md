@@ -851,7 +851,7 @@ jobs:
           docker run --rm -v "${{ github.workspace }}:/workspace/project" \
             -w "/workspace/project/${{ inputs.package_dir }}" \
             databricks-local-ci:${{ inputs.dbr_version }} \
-            bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
+            bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && rm -rf dist && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
 
   deploy:
     needs: build-and-test
@@ -862,7 +862,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: databricks/setup-cli@main
+      - uses: databricks/setup-cli@v1.12.1
 
       - name: Deploy bundle
         working-directory: ${{ inputs.package_dir }}
@@ -871,6 +871,15 @@ jobs:
           DATABRICKS_AUTH_TYPE: github-oidc
         run: databricks bundle deploy --target ${{ inputs.bundle_target }}
 ```
+
+(Fixed after code review: `databricks/setup-cli` is now pinned to `v1.12.1`
+instead of the floating `@main` ref — a *reusable* workflow shouldn't let an
+upstream change to `main` silently break every consumer's deploy job at once.
+Bump this deliberately when adopting a newer CLI version. The wheel build step
+also gained `rm -rf dist &&` before `python -m build --wheel`, guarding the
+`dist/*.whl` glob against matching a stale wheel left over from a prior local run
+against the same bind-mounted checkout — low-risk in fresh CI, but a real footgun
+in the local reproduction command below.)
 
 (The `build-and-test` step installs `databricks-local-ci` itself first — via
 `pip install --no-deps -e /workspace/project`, the exact pattern already proven in
@@ -932,7 +941,7 @@ the workflow would run, substituting `examples/example_job` for `inputs.package_
 ```bash
 docker build -t databricks-local-ci:15.4-lts --build-arg DBR_TAG=15.4-LTS -f docker/Dockerfile .
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
-  databricks-local-ci:15.4-lts bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
+  databricks-local-ci:15.4-lts bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && rm -rf dist && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
 ```
 (prefix with `MSYS_NO_PATHCONV=1` on Windows Git Bash if `-v` paths get mangled)
 
