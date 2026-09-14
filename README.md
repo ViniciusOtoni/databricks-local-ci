@@ -26,9 +26,13 @@ notebooks, or Lakeflow pipelines in v1).
 Two separate reusable workflows: `databricks-ci.yml` builds the DBR image,
 installs `databricks-local-ci`, builds your wheel with `uv`, runs your tests
 inside the container, and uploads the wheel as a build artifact.
-`databricks-cd.yml` downloads that artifact and runs `databricks bundle deploy`,
-authenticated via GitHub OIDC to a Service Principal — it never runs unless CI
-succeeded first. Wire them together in your project's own
+`databricks-cd.yml` downloads that artifact and runs `databricks bundle deploy`
+— it never runs unless CI succeeded first. It supports two authentication
+methods (`auth_method` input): `oidc` (default — a Service Principal federated
+to GitHub via OIDC, no long-lived secret, but **requires account console
+access**) and `pat` (a personal access token — works on **Databricks Free
+Edition**, which has no account console and so cannot use Service
+Principal/OIDC federation at all). Wire them together in your project's own
 `.github/workflows/ci-cd.yml`:
 
 ```yaml
@@ -52,23 +56,41 @@ jobs:
     with:
       package_dir: "."
       bundle_target: "prod"
+      auth_method: "oidc"  # or "pat" — see below
     secrets:
       databricks_host: ${{ secrets.DATABRICKS_HOST }}
-      databricks_client_id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      databricks_client_id: ${{ secrets.DATABRICKS_CLIENT_ID }}  # oidc only
+      databricks_token: ${{ secrets.DATABRICKS_TOKEN }}          # pat only
 ```
 
-`databricks_client_id` is the Service Principal's application (client) ID —
-Databricks's GitHub OIDC federation resolves the SPN from this ID plus the
-`github-oidc` auth type; `databricks_host` alone isn't enough to authenticate.
+**`auth_method: "oidc"`** (default, recommended when you have it): a Service
+Principal federated to your GitHub repo's OIDC issuer. `databricks_client_id`
+is the Service Principal's application (client) ID — Databricks's GitHub OIDC
+federation resolves the SPN from this ID plus the `github-oidc` auth type;
+`databricks_host` alone isn't enough to authenticate. **This requires account
+console access, which Databricks Free Edition does not have** — trying this
+on Free Edition fails with `TOKEN_INVALID (Ensure a valid federation policy
+has been configured)` no matter how the policy is configured, because Free
+Edition cannot create federation policies at all (confirmed: no account
+console, no account-level APIs, no Service Principal OAuth).
+
+**`auth_method: "pat"`** (works on Free Edition): a classic personal access
+token, generated per-user from **workspace** Settings → Developer → Access
+tokens (a workspace-level feature, unlike Service Principals) and stored as
+the `databricks_token` secret. Less secure than OIDC (a real long-lived bearer
+credential sitting in GitHub Secrets, not a short-lived federated token) — use
+`oidc` whenever your workspace tier supports it, and treat `pat` as the Free
+Edition / no-account-console fallback, not the default recommendation.
 
 **The `permissions: id-token: write` block on the `deploy` job above is not
-optional.** Without it, GitHub Actions fails the whole run before any job
-starts, with: `The nested job 'deploy' is requesting 'id-token: write', but is
-only allowed 'id-token: none'.` A reusable workflow's job can only be granted
-permissions up to what the *calling* job already has — `databricks-cd.yml`
-requesting `id-token: write` internally isn't enough on its own; your caller
-job needs to grant it too. (Confirmed by actually hitting this exact failure
-wiring up a real consumer repo.)
+optional, even when using `auth_method: "pat"`.** Without it, GitHub Actions
+fails the whole run before any job starts, with: `The nested job 'deploy' is
+requesting 'id-token: write', but is only allowed 'id-token: none'.` A
+reusable workflow's job can only be granted permissions up to what the
+*calling* job already has — `databricks-cd.yml` requesting `id-token: write`
+internally isn't enough on its own; your caller job needs to grant it too.
+(Confirmed by actually hitting this exact failure wiring up a real consumer
+repo.)
 
 Pin `@master` to a tagged release once this framework has one.
 
@@ -115,13 +137,15 @@ Pin `@master` to a tagged release once this framework has one.
   `docker run`s don't need network access — but that means the *build* itself
   does. A restrictive corporate proxy or an air-gapped self-hosted runner will
   make `docker build` fail at that step; there's no offline fallback in v1.
-- **`databricks-cd.yml`'s OIDC setup is unverified against a real Databricks
-  workspace.** It needs a Service Principal already federated to your GitHub
-  repo's OIDC issuer (Databricks-side setup, not something this workflow does
-  for you), plus `databricks_host` and `databricks_client_id` secrets on the
-  *calling* repo. Confirm the exact env var names and `databricks/setup-cli`
-  usage (pinned to `v1.12.1` here — bump deliberately) against Databricks's
-  current OIDC docs before relying on this in production.
+- **OIDC needs a Service Principal already federated to your GitHub repo's
+  OIDC issuer** (Databricks-side setup, not something this workflow does for
+  you) — and, as covered above, that setup is simply unavailable on Free
+  Edition. Verified for real against `databricks-job-example`: the workflow
+  mechanics (checkout, `databricks/setup-cli@v1.12.1`, `id-token: write`
+  propagation) all work correctly — the run reaches Databricks's OIDC token
+  endpoint and gets back a real, specific `TOKEN_INVALID` response, not a
+  workflow-level failure. Use `auth_method: "pat"` if you don't have account
+  console access.
 - **The CD workflow assumes your bundle config expects the wheel at
   `<package_dir>/dist/*.whl`.** `databricks-cd.yml` downloads the artifact
   straight into that path before running `databricks bundle deploy`. If your
