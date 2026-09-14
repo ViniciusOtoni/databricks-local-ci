@@ -8,3 +8,4 @@ derby.log
 .pytest_cache/
 dist/
 build/
+.worktrees/
