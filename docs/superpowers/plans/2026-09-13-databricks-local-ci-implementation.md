@@ -809,7 +809,7 @@ for every tag.
 - Modify: `docker/Dockerfile`
 - Modify: `examples/example_job/pyproject.toml`
 
-- [ ] **Step 1: Write the reusable workflow**
+- [x] **Step 1: Write the reusable workflow**
 
 `.github/workflows/databricks-ci.yml`:
 ```yaml
@@ -895,7 +895,7 @@ somewhere that isn't "the calling repo's own checkout" (PyPI once published, or 
 pinned git URL) — this workflow doesn't yet handle that case, and Task 9's README
 should say so explicitly rather than implying this is proven for external repos.)
 
-- [ ] **Step 2: Make the Dockerfile's base tag configurable via build-arg**
+- [x] **Step 2: Make the Dockerfile's base tag configurable via build-arg**
 
 The workflow passes `--build-arg DBR_TAG=...`, so the Dockerfile needs to accept it.
 
@@ -905,7 +905,7 @@ ARG DBR_TAG=15.4-LTS
 FROM databricksruntime/python:${DBR_TAG}
 ```
 
-- [ ] **Step 2b: Remove the broken framework self-reference from the example job**
+- [x] **Step 2b: Remove the broken framework self-reference from the example job**
 
 `examples/example_job/pyproject.toml`'s `dev` extra currently has:
 ```toml
@@ -926,14 +926,14 @@ dev = [
 ]
 ```
 
-- [ ] **Step 3: Verify the workflow file is valid YAML**
+- [x] **Step 3: Verify the workflow file is valid YAML**
 
 ```bash
 python -c "import yaml; yaml.safe_load(open('.github/workflows/databricks-ci.yml'))" && echo VALID_YAML
 ```
 Expected: `VALID_YAML`
 
-- [ ] **Step 3b: Manually simulate the build-and-test job's actual command**
+- [x] **Step 3b: Manually simulate the build-and-test job's actual command**
 
 GitHub Actions itself can't be run from this repo, but the shell logic inside the
 `build-and-test` job can be proven correct right now by running the same command
@@ -949,7 +949,7 @@ Expected: `2 passed`. This is the same command Task 8's `build-and-test` job run
 just invoked directly instead of through GitHub Actions — if this fails, the
 workflow YAML will fail identically once triggered for real.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .github/workflows/databricks-ci.yml docker/Dockerfile examples/example_job/pyproject.toml
