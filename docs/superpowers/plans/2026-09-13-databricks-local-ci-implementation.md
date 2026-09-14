@@ -380,14 +380,14 @@ git commit -m "feat: add DBR-based Docker image and smoke test"
 - Modify: `pyproject.toml`
 - Test: `tests/test_fixtures.py`
 
-- [ ] **Step 0a: Create a placeholder `fixtures.py`**
+- [x] **Step 0a: Create a placeholder `fixtures.py`**
 
 `src/databricks_local_ci/fixtures.py`: an empty file for now. It must exist
 *before* the pytest plugin entry point below is registered, or every `pytest`
 invocation in this venv crashes at plugin-loading time with a
 `ModuleNotFoundError` instead of a clean test failure.
 
-- [ ] **Step 0b: Register the pytest plugin entry point**
+- [x] **Step 0b: Register the pytest plugin entry point**
 
 Add this section to `pyproject.toml` (deferred from Task 1 specifically until
 this module exists):
@@ -402,7 +402,7 @@ since editable installs cache entry-point metadata that only refreshes on
 reinstall, and an un-refreshed host venv would crash every `pytest` invocation
 there the same way Task 1's premature registration did.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `tests/test_fixtures.py`:
 ```python
@@ -416,7 +416,7 @@ def test_local_spark_session_reads_and_writes_delta(local_spark_session, local_d
     assert sorted(row["value"] for row in result.collect()) == ["a", "b"]
 ```
 
-- [ ] **Step 2: Run the test inside the container to verify it fails**
+- [x] **Step 2: Run the test inside the container to verify it fails**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project \
@@ -424,7 +424,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project \
 ```
 Expected: `fixture 'local_spark_session' not found`.
 
-- [ ] **Step 3: Write the implementation (replacing the placeholder)**
+- [x] **Step 3: Write the implementation (replacing the placeholder)**
 
 `src/databricks_local_ci/fixtures.py`:
 ```python
@@ -489,7 +489,7 @@ raises — the original flat `try/finally` only covered failures during the test
 body. Also added return type annotations and `setLogLevel("WARN")` to cut Spark's
 default log noise, since this fixture runs in every consumer project's CI.)
 
-- [ ] **Step 4: Run the test inside the container to verify it passes**
+- [x] **Step 4: Run the test inside the container to verify it passes**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project \
@@ -497,7 +497,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project \
 ```
 Expected: `1 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/databricks_local_ci/fixtures.py pyproject.toml tests/test_fixtures.py
