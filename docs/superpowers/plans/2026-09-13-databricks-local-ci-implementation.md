@@ -1042,10 +1042,22 @@ Pin `@master` to a tagged release once this framework has one.
   `.master(...)` — production Databricks Jobs get that from the platform, and
   `databricksruntime/python:15.4-LTS` happens to default to local mode when
   none is set. If you pin a different `dbr_version`, sanity-check that it
-  still defaults to local mode (run `docker/smoke_test.py`'s pattern against
-  it) before trusting your own job's tests — a tag that doesn't default to
-  local mode will hang or fail with a confusing "must set a master URL" error
-  instead of an obvious one.
+  still defaults to local mode (copy the pattern from `docker/smoke_test.py`
+  in this repo) before trusting your own job's tests — a tag that doesn't
+  default to local mode will hang or fail with a confusing "must set a master
+  URL" error instead of an obvious one.
+- **Run tests inside the Docker container, not directly on a Windows host.**
+  PySpark's Java gateway fails to launch on Windows when the checkout path
+  contains non-ASCII characters (confirmed during this project's own
+  development — its repo happened to live under a path with an accented
+  character). This has nothing to do with your code; it's a PySpark-on-Windows
+  classpath quirk. Always run `pytest` inside the `databricksruntime`-based
+  container, never on the bare host, and this never comes up.
+- **`docker build` needs network access to Maven Central.** The image's second
+  build layer resolves Delta Lake's JAR dependencies via Ivy/Maven so later
+  `docker run`s don't need network access — but that means the *build* itself
+  does. A restrictive corporate proxy or an air-gapped self-hosted runner will
+  make `docker build` fail at that step; there's no offline fallback in v1.
 - **The `deploy` job's OIDC setup is unverified against a real Databricks
   workspace.** It needs a Service Principal already federated to your GitHub
   repo's OIDC issuer (Databricks-side setup, not something this workflow does
