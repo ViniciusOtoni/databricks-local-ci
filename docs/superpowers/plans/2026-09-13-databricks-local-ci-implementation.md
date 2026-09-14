@@ -243,7 +243,7 @@ depends on it.
 - Create: `.dockerignore`
 - Create: `docker/smoke_test.py`
 
-- [ ] **Step 0: Write the build-context ignore file**
+- [x] **Step 0: Write the build-context ignore file**
 
 `.dockerignore` at the **repo root** (Docker only auto-applies a `.dockerignore`
 found in the build context directory — Step 3's build command uses `-f
@@ -264,7 +264,7 @@ dist/
 build/
 ```
 
-- [ ] **Step 1: Write the Dockerfile**
+- [x] **Step 1: Write the Dockerfile**
 
 `docker/Dockerfile`:
 ```dockerfile
@@ -296,7 +296,7 @@ that doesn't exist. The image also has no unversioned `python` on `PATH` — onl
 Python 3.11's site-packages — so we symlink `python` to `python3.11` to keep the
 interpreter that runs code consistent with the one `pip` installs into.)
 
-- [ ] **Step 2: Write the smoke test script**
+- [x] **Step 2: Write the smoke test script**
 
 `docker/smoke_test.py`:
 ```python
@@ -323,7 +323,7 @@ spark.stop()
 print("SMOKE_OK")
 ```
 
-- [ ] **Step 3: Build the image**
+- [x] **Step 3: Build the image**
 
 Run (from the repo root):
 ```bash
@@ -333,7 +333,7 @@ Expected: build completes successfully, ending with
 `Successfully tagged databricks-local-ci:15.4-lts` (or the buildkit equivalent
 `naming to docker.io/library/databricks-local-ci:15.4-lts`).
 
-- [ ] **Step 4: Run the smoke test inside the container**
+- [x] **Step 4: Run the smoke test inside the container**
 
 ```bash
 docker run --rm -v "$(pwd)/docker:/workspace/docker" databricks-local-ci:15.4-lts \
@@ -345,7 +345,7 @@ Expected: last line of output is `SMOKE_OK`.
 conversion — if you see something like `ls: cannot access '/workspace/docker'`,
 prefix the command with `MSYS_NO_PATHCONV=1`.)
 
-- [ ] **Step 4b: Confirm the Delta JAR cache warm-up is actually being used**
+- [x] **Step 4b: Confirm the Delta JAR cache warm-up is actually being used**
 
 Re-run Step 4 with Ivy's resolution log visible (it's on by default) and check the
 resolution report in the output:
@@ -364,7 +364,7 @@ calls `InetAddress.getLocalHost()` during log4j init, which fails on
 long before Spark's code ever reaches Ivy/Delta resolution. That failure means
 nothing about whether the cache works; don't use it as a signal.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docker/Dockerfile .dockerignore docker/smoke_test.py
