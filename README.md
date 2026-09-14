@@ -45,6 +45,9 @@ jobs:
   deploy:
     needs: test
     if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
     uses: <org>/databricks-local-ci/.github/workflows/databricks-cd.yml@master
     with:
       package_dir: "."
@@ -58,6 +61,15 @@ jobs:
 Databricks's GitHub OIDC federation resolves the SPN from this ID plus the
 `github-oidc` auth type; `databricks_host` alone isn't enough to authenticate.
 
+**The `permissions: id-token: write` block on the `deploy` job above is not
+optional.** Without it, GitHub Actions fails the whole run before any job
+starts, with: `The nested job 'deploy' is requesting 'id-token: write', but is
+only allowed 'id-token: none'.` A reusable workflow's job can only be granted
+permissions up to what the *calling* job already has — `databricks-cd.yml`
+requesting `id-token: write` internally isn't enough on its own; your caller
+job needs to grant it too. (Confirmed by actually hitting this exact failure
+wiring up a real consumer repo.)
+
 Pin `@master` to a tagged release once this framework has one.
 
 ## Known limitations (read before adopting)
@@ -69,10 +81,10 @@ Pin `@master` to a tagged release once this framework has one.
   `databricks-local-ci @ git+https://github.com/<org>/databricks-local-ci.git@master`.
   This is genuinely proven to work for a repo other than this one's own bundled
   example (`example_job`'s own CI now installs it this same way — via a real
-  `git clone` of this public repo — not via a local path shortcut). What's
-  *not* yet proven is a real GitHub Actions run of a truly separate consumer
-  repo calling these reusable workflows over `uses:`; only the underlying
-  shell/pip mechanics have been verified locally.
+  `git clone` of this public repo — not via a local path shortcut), and for a
+  genuinely separate consumer repo
+  ([`databricks-job-example`](https://github.com/ViniciusOtoni/databricks-job-example))
+  wiring these workflows up over `uses:` for real.
 - **Don't declare `databricks-local-ci` as a relative `file://` path
   dependency.** An earlier draft of `examples/example_job/pyproject.toml` tried
   `databricks-local-ci @ file://../..` in its `dev` extra — pip rejects
