@@ -345,16 +345,24 @@ Expected: last line of output is `SMOKE_OK`.
 conversion — if you see something like `ls: cannot access '/workspace/docker'`,
 prefix the command with `MSYS_NO_PATHCONV=1`.)
 
-- [ ] **Step 4b: Confirm the Delta JAR cache warm-up actually removed the network dependency**
+- [ ] **Step 4b: Confirm the Delta JAR cache warm-up is actually being used**
 
-```bash
-docker run --rm --network none -v "$(pwd)/docker:/workspace/docker" databricks-local-ci:15.4-lts \
-  python docker/smoke_test.py
+Re-run Step 4 with Ivy's resolution log visible (it's on by default) and check the
+resolution report in the output:
 ```
-Expected: still prints `SMOKE_OK`, with no network access at all (`--network none`).
-If this fails but Step 4 (with network) passed, the Step 1 cache warm-up isn't
-actually caching what `smoke_test.py` resolves at runtime — investigate before
-moving on, since every later task's pytest run depends on this working offline.
+:: resolution report :: resolve ...ms :: artifacts dl ...ms
+	default | 3 | 0 | 0 | 0 || 3 | 0
+0 artifacts copied, 3 already retrieved (...)
+```
+Expected: `0 downloaded` / `N already retrieved` (the exact `N` may vary) — proof
+Ivy resolved Delta's dependencies from the cache baked into the image in Step 1,
+not from the network.
+
+(`--network none` is **not** a valid way to test this: PySpark's JVM bootstrap
+calls `InetAddress.getLocalHost()` during log4j init, which fails on
+`java.net.UnknownHostException` in a container with no network namespace at all —
+long before Spark's code ever reaches Ivy/Delta resolution. That failure means
+nothing about whether the cache works; don't use it as a signal.)
 
 - [ ] **Step 5: Commit**
 
