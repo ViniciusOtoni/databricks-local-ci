@@ -19,7 +19,7 @@
 - Create: `pyproject.toml`
 - Create: `src/databricks_local_ci/__init__.py`
 
-- [ ] **Step 1: Create `.gitignore`**
+- [x] **Step 1: Create `.gitignore`**
 
 ```
 __pycache__/
@@ -34,7 +34,7 @@ dist/
 build/
 ```
 
-- [ ] **Step 2: Create `pyproject.toml`**
+- [x] **Step 2: Create `pyproject.toml`**
 
 ```toml
 [project]
@@ -64,14 +64,14 @@ plugin is added later, in Task 4, once that module actually exists. Registering 
 here would break every `pytest` invocation in this venv with a plugin-loading
 `ModuleNotFoundError` before `fixtures.py` exists.
 
-- [ ] **Step 3: Create the package init file**
+- [x] **Step 3: Create the package init file**
 
 `src/databricks_local_ci/__init__.py`:
 ```python
 ```
 (empty file — just marks the directory as a package)
 
-- [ ] **Step 4: Create the host venv and install in editable mode**
+- [x] **Step 4: Create the host venv and install in editable mode**
 
 Run (from the repo root, in `bash`):
 ```bash
@@ -83,7 +83,7 @@ pip install -e ".[dev]"
 Expected: no errors; `pip show databricks-local-ci` afterward shows `Version: 0.1.0` and
 `Editable project location` pointing at the repo.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .gitignore pyproject.toml src/databricks_local_ci/__init__.py
