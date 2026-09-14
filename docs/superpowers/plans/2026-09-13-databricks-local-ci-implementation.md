@@ -248,15 +248,22 @@ depends on it.
 ```dockerfile
 FROM databricksruntime/python:15.4-LTS
 
-RUN pip install --no-deps delta-spark==3.2.1 \
-    && pip install pytest build
+RUN pip install pyspark==3.5.3 delta-spark==3.2.1 pytest build \
+    && ln -sf "$(command -v python3.11)" /usr/local/bin/python
 
 WORKDIR /workspace
 ```
 
-(15.4-LTS bundles Apache Spark 3.5.0 — pin this tag to whatever DBR version your
-production jobs actually run on. `--no-deps` avoids pip pulling in a second,
-conflicting pyspark on top of the one already baked into the base image.)
+(Corrected after Task 3 implementation surfaced this empirically: unlike the base
+Databricks Runtime service, the `databricksruntime/python` *Docker image* does not
+bundle PySpark at all — it's a bare Python base image for Databricks Container
+Services, which normally has Spark injected by the Databricks control plane at
+cluster boot. So we install `pyspark==3.5.3` ourselves to match DBR 15.4 LTS's
+Spark 3.5.0, rather than relying on `--no-deps` to preserve a preinstalled copy
+that doesn't exist. The image also has no unversioned `python` on `PATH` — only
+`python3`, which resolves to Python 3.10, while the image's `pip` installs into
+Python 3.11's site-packages — so we symlink `python` to `python3.11` to keep the
+interpreter that runs code consistent with the one `pip` installs into.)
 
 - [ ] **Step 2: Write the smoke test script**
 
@@ -268,6 +275,8 @@ from pyspark.sql import SparkSession
 builder = (
     SparkSession.builder.appName("smoke-test")
     .master("local[2]")
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
     .config("spark.ui.enabled", "false")
 )
 spark = configure_spark_with_delta_pip(builder).getOrCreate()
@@ -301,11 +310,9 @@ docker run --rm -v "$(pwd)/docker:/workspace/docker" databricks-local-ci:15.4-lt
 ```
 Expected: last line of output is `SMOKE_OK`.
 
-If this fails with a Delta-related `ClassNotFoundException`, the DBR image's
-bundled Delta JARs aren't wired to `configure_spark_with_delta_pip`'s Maven
-coordinates — as a fallback, drop `--no-deps` from Step 1's `pip install` and
-rebuild, letting pip resolve a matching pyspark instead of relying on the
-base image's copy.
+(On Windows Git Bash, `-v` bind-mount paths can get mangled by MSYS path
+conversion — if you see something like `ls: cannot access '/workspace/docker'`,
+prefix the command with `MSYS_NO_PATHCONV=1`.)
 
 - [ ] **Step 5: Commit**
 
@@ -390,6 +397,8 @@ def local_spark_session():
     builder = (
         SparkSession.builder.appName("databricks-local-ci")
         .master("local[2]")
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
         .config("spark.sql.warehouse.dir", warehouse_dir)
         .config("spark.ui.enabled", "false")
     )
@@ -587,7 +596,11 @@ def run(input_path: str, output_path: str) -> None:
     Returns:
         None.
     """
-    builder = SparkSession.builder.appName("example-job")
+    builder = (
+        SparkSession.builder.appName("example-job")
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+    )
     spark = configure_spark_with_delta_pip(builder).getOrCreate()
     try:
         sales_df = spark.read.format("delta").load(input_path)
