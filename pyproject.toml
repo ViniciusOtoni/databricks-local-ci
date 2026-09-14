@@ -12,9 +12,6 @@ dev = [
     "delta-spark==3.2.1",
 ]
 
-[project.entry-points.pytest11]
-databricks_local_ci = "databricks_local_ci.fixtures"
-
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
