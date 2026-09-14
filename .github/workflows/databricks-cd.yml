@@ -16,11 +16,18 @@ on:
         required: false
         type: string
         default: "databricks-wheel"
+      auth_method:
+        description: "How to authenticate to Databricks: 'oidc' (Service Principal via GitHub OIDC, needs an account console) or 'pat' (personal access token, works on Free Edition)"
+        required: false
+        type: string
+        default: "oidc"
     secrets:
       databricks_host:
         required: true
       databricks_client_id:
-        required: true
+        required: false
+      databricks_token:
+        required: false
 
 jobs:
   deploy:
@@ -38,10 +45,19 @@ jobs:
 
       - uses: databricks/setup-cli@v1.12.1
 
-      - name: Deploy bundle
+      - name: Deploy bundle (OIDC Service Principal)
+        if: ${{ inputs.auth_method == 'oidc' }}
         working-directory: ${{ inputs.package_dir }}
         env:
           DATABRICKS_HOST: ${{ secrets.databricks_host }}
           DATABRICKS_CLIENT_ID: ${{ secrets.databricks_client_id }}
           DATABRICKS_AUTH_TYPE: github-oidc
+        run: databricks bundle deploy --target ${{ inputs.bundle_target }}
+
+      - name: Deploy bundle (personal access token)
+        if: ${{ inputs.auth_method == 'pat' }}
+        working-directory: ${{ inputs.package_dir }}
+        env:
+          DATABRICKS_HOST: ${{ secrets.databricks_host }}
+          DATABRICKS_TOKEN: ${{ secrets.databricks_token }}
         run: databricks bundle deploy --target ${{ inputs.bundle_target }}
