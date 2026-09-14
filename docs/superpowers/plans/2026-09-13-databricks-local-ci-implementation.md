@@ -531,7 +531,6 @@ example-job = "example_job.main:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8,<10",
-    "databricks-local-ci @ file://../..",
 ]
 
 [build-system]
@@ -541,6 +540,15 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 ```
+
+(Fixed during Task 8: the original `dev` extra also listed
+`"databricks-local-ci @ file://../.."`, which is invalid — pip rejects relative
+`file://` URIs outright with `non-local file URIs are not supported on this
+platform`. This was never caught by Tasks 5-7 because their manual commands
+always installed `databricks-local-ci` as a separate, explicit
+`pip install --no-deps -e /workspace/project` step and never resolved the `dev`
+extra. Task 8's workflow does the same explicit install as its own step — see
+below — so the framework dependency doesn't need to live in this file at all.)
 
 - [x] **Step 2: Create the package init file**
 
@@ -798,6 +806,8 @@ for every tag.
 
 **Files:**
 - Create: `.github/workflows/databricks-ci.yml`
+- Modify: `docker/Dockerfile`
+- Modify: `examples/example_job/pyproject.toml`
 
 - [ ] **Step 1: Write the reusable workflow**
 
@@ -836,12 +846,12 @@ jobs:
             --build-arg DBR_TAG=${{ inputs.dbr_version }} \
             -f docker/Dockerfile .
 
-      - name: Install dev deps, build wheel, install it, and run tests inside the container
+      - name: Install databricks-local-ci and dev deps, build wheel, install it, and run tests
         run: |
           docker run --rm -v "${{ github.workspace }}:/workspace/project" \
             -w "/workspace/project/${{ inputs.package_dir }}" \
             databricks-local-ci:${{ inputs.dbr_version }} \
-            bash -c "pip install -e '.[dev]' && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
+            bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
 
   deploy:
     needs: build-and-test
@@ -862,14 +872,19 @@ jobs:
         run: databricks bundle deploy --target ${{ inputs.bundle_target }}
 ```
 
-(The `build-and-test` step installs the consumer package editable with its `dev`
-extra first — `pip install -e '.[dev]'` — before building the wheel. This is what
-actually brings in `databricks-local-ci` and its fixtures/`run_entrypoint`: a
-generic reusable workflow can't assume every consumer's framework dependency lives
-at a repo-relative path the way this monorepo's own `examples/example_job` does.
-The wheel is then built and reinstalled with `--no-deps` — proving the real shipped
-artifact installs and passes, not just the editable checkout — while `pytest`
-still has the dev-extra tooling already in place from the first install.)
+(The `build-and-test` step installs `databricks-local-ci` itself first — via
+`pip install --no-deps -e /workspace/project`, the exact pattern already proven in
+Tasks 4-7 — then installs the consumer package editable with its `dev` extra
+(`pytest`, etc.), then builds the wheel and reinstalls it with `--no-deps` to prove
+the real shipped artifact installs and passes, not just the editable checkout.
+
+**Known limitation, not fixed in this task:** `/workspace/project` is mounted from
+`github.workspace`, which is *this framework's own repo* when the workflow tests
+its bundled `examples/example_job` — that's the only scenario validated here. A
+genuinely external consumer repo would need `databricks-local-ci` installed from
+somewhere that isn't "the calling repo's own checkout" (PyPI once published, or a
+pinned git URL) — this workflow doesn't yet handle that case, and Task 9's README
+should say so explicitly rather than implying this is proven for external repos.)
 
 - [ ] **Step 2: Make the Dockerfile's base tag configurable via build-arg**
 
@@ -879,6 +894,27 @@ Modify `docker/Dockerfile` (from Task 3) — replace the first line:
 ```dockerfile
 ARG DBR_TAG=15.4-LTS
 FROM databricksruntime/python:${DBR_TAG}
+```
+
+- [ ] **Step 2b: Remove the broken framework self-reference from the example job**
+
+`examples/example_job/pyproject.toml`'s `dev` extra currently has:
+```toml
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<10",
+    "databricks-local-ci @ file://../..",
+]
+```
+Remove the `databricks-local-ci @ file://../..` line — it's invalid (pip rejects
+relative `file://` URIs), and it's redundant now anyway since the workflow's
+`build-and-test` step installs `databricks-local-ci` as its own explicit step
+before touching this file's `dev` extra. Result:
+```toml
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<10",
+]
 ```
 
 - [ ] **Step 3: Verify the workflow file is valid YAML**
@@ -896,7 +932,7 @@ the workflow would run, substituting `examples/example_job` for `inputs.package_
 ```bash
 docker build -t databricks-local-ci:15.4-lts --build-arg DBR_TAG=15.4-LTS -f docker/Dockerfile .
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
-  databricks-local-ci:15.4-lts bash -c "pip install -e '.[dev]' && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
+  databricks-local-ci:15.4-lts bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
 ```
 (prefix with `MSYS_NO_PATHCONV=1` on Windows Git Bash if `-v` paths get mangled)
 
@@ -907,7 +943,7 @@ workflow YAML will fail identically once triggered for real.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add .github/workflows/databricks-ci.yml docker/Dockerfile
+git add .github/workflows/databricks-ci.yml docker/Dockerfile examples/example_job/pyproject.toml
 git commit -m "feat: add reusable GitHub Actions workflow (build-and-test + deploy)"
 ```
 
