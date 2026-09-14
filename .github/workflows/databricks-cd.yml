@@ -1,0 +1,47 @@
+name: Databricks CD
+
+on:
+  workflow_call:
+    inputs:
+      package_dir:
+        description: "Path (relative to the caller repo root) to the bundle/job package"
+        required: true
+        type: string
+      bundle_target:
+        description: "Databricks Asset Bundle target to deploy, e.g. prod"
+        required: true
+        type: string
+      artifact_name:
+        description: "Name of the wheel artifact to download, produced by databricks-ci.yml"
+        required: false
+        type: string
+        default: "databricks-wheel"
+    secrets:
+      databricks_host:
+        required: true
+      databricks_client_id:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.package_dir }}/dist
+
+      - uses: databricks/setup-cli@v1.12.1
+
+      - name: Deploy bundle
+        working-directory: ${{ inputs.package_dir }}
+        env:
+          DATABRICKS_HOST: ${{ secrets.databricks_host }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.databricks_client_id }}
+          DATABRICKS_AUTH_TYPE: github-oidc
+        run: databricks bundle deploy --target ${{ inputs.bundle_target }}

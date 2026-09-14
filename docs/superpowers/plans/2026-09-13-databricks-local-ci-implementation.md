@@ -966,6 +966,195 @@ workspace.
 
 ---
 
+## Task 8 revision: split into separate CI and CD workflows
+
+Requested directly by the user after Task 8 originally landed: replace the
+single `databricks-ci.yml` file's two jobs (`build-and-test` + `deploy`) with
+**two separate reusable workflows**, artifact-linked instead of `needs:`-linked,
+and rebuild the wheel with **uv** instead of the stdlib `build` package.
+
+**Why this shape:** a consumer's own top-level workflow now calls both
+reusable workflows as sibling jobs (`test` then `deploy`, `deploy` gated by
+`needs: test`). Because both `uses:` calls execute as jobs of the *same*
+top-level workflow run, `actions/upload-artifact` in the CI job and
+`actions/download-artifact` in the CD job share that run's artifact store with
+no cross-run wiring needed.
+
+**Files:**
+- Modify: `docker/Dockerfile` — swap the `build` package for `uv`
+- Modify: `.github/workflows/databricks-ci.yml` — granular named steps via a
+  persistent named container (`docker run -d ... sleep infinity` +
+  `docker exec` per step, so installed state survives across steps instead of
+  each step re-paying a fresh `docker run`'s cost); ends by uploading the built
+  wheel as an artifact instead of gating a `deploy` job
+- Create: `.github/workflows/databricks-cd.yml` — new reusable workflow:
+  downloads the wheel artifact, then runs `databricks bundle deploy`
+- Modify: `README.md` — two-workflow consumption example, updated known
+  limitations
+
+**`docker/Dockerfile`:** replace `"build>=1.0,<2"` in the pip install line with
+`uv` (verified: `uv build --wheel` works against the existing setuptools
+backend with no `pyproject.toml` changes needed — `uv build` is a PEP 517
+frontend, backend-agnostic).
+
+**`.github/workflows/databricks-ci.yml`** — full replacement:
+```yaml
+name: Databricks CI
+
+on:
+  workflow_call:
+    inputs:
+      dbr_version:
+        description: "databricksruntime/python tag to test against, e.g. 15.4-LTS"
+        required: true
+        type: string
+      package_dir:
+        description: "Path (relative to the caller repo root) to the job package"
+        required: true
+        type: string
+      artifact_name:
+        description: "Name of the uploaded wheel artifact, consumed by databricks-cd.yml"
+        required: false
+        type: string
+        default: "databricks-wheel"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build DBR-based test image
+        run: |
+          docker build -t databricks-local-ci:${{ inputs.dbr_version }} \
+            --build-arg DBR_TAG=${{ inputs.dbr_version }} \
+            -f docker/Dockerfile .
+
+      - name: Start build container
+        run: |
+          docker run -d --name ci-container \
+            -v "${{ github.workspace }}:/workspace/project" \
+            -w "/workspace/project/${{ inputs.package_dir }}" \
+            databricks-local-ci:${{ inputs.dbr_version }} \
+            sleep infinity
+
+      - name: Install databricks-local-ci
+        run: |
+          docker exec ci-container pip install --no-deps -e /workspace/project
+          docker exec ci-container pip install -e ".[dev]"
+
+      - name: Build wheel with uv
+        run: docker exec ci-container bash -c "rm -rf dist && uv build --wheel"
+
+      - name: Install the built wheel
+        run: docker exec ci-container bash -c "pip install --force-reinstall --no-deps dist/*.whl"
+
+      - name: Run application tests
+        run: docker exec ci-container pytest tests/ -v
+
+      - name: Stop build container
+        if: always()
+        run: docker rm -f ci-container
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.package_dir }}/dist/*.whl
+          if-no-files-found: error
+```
+
+(`bundle_target` is no longer an input here — deploy moved entirely to
+`databricks-cd.yml`. The bind mount means `dist/` built inside the container at
+`/workspace/project/<package_dir>/dist` is the same filesystem location as
+`${{ github.workspace }}/<package_dir>/dist` on the runner — no copy-out step
+needed before `upload-artifact`.)
+
+**`.github/workflows/databricks-cd.yml`** — new file:
+```yaml
+name: Databricks CD
+
+on:
+  workflow_call:
+    inputs:
+      package_dir:
+        description: "Path (relative to the caller repo root) to the bundle/job package"
+        required: true
+        type: string
+      bundle_target:
+        description: "Databricks Asset Bundle target to deploy, e.g. prod"
+        required: true
+        type: string
+      artifact_name:
+        description: "Name of the wheel artifact to download, produced by databricks-ci.yml"
+        required: false
+        type: string
+        default: "databricks-wheel"
+    secrets:
+      databricks_host:
+        required: true
+      databricks_client_id:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.package_dir }}/dist
+
+      - uses: databricks/setup-cli@v1.12.1
+
+      - name: Deploy bundle
+        working-directory: ${{ inputs.package_dir }}
+        env:
+          DATABRICKS_HOST: ${{ secrets.databricks_host }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.databricks_client_id }}
+          DATABRICKS_AUTH_TYPE: github-oidc
+        run: databricks bundle deploy --target ${{ inputs.bundle_target }}
+```
+
+(`DATABRICKS_CLIENT_ID` is a fix, not scope creep: researched during this
+revision — Databricks's GitHub OIDC federation needs the Service Principal's
+application/client ID alongside `DATABRICKS_AUTH_TYPE=github-oidc` and
+`DATABRICKS_HOST`; the original Task 8 draft was missing it entirely, which
+would have made the original `deploy` job fail authentication even with
+correct federation configured on the Databricks side.)
+
+**Verification performed** (manually, via a persistent named container mirroring
+the workflow's own steps exactly, against `examples/example_job`):
+1. Rebuilt the image with `uv` installed — confirmed `uv --version` runs.
+2. `docker run -d --name ci-container ... sleep infinity`, then `docker exec`
+   for each step in order: install `databricks-local-ci`, install dev deps,
+   `rm -rf dist && uv build --wheel` (produced
+   `example_job-0.1.0-py3-none-any.whl` — `uv build` worked against the
+   existing setuptools backend with zero config changes), install the built
+   wheel, run tests.
+3. `pytest tests/ -v` → `2 passed` (`test_example_job_real_run_writes_expected_summary`,
+   `test_summarize_sales_by_category`) — the uv-built, non-editable wheel
+   passes the exact same flagship real-run test as the `build`-based wheel did.
+4. Cleaned up the container and the build artifacts (`dist/`, `*.egg-info/`,
+   `build/`) left on the bind-mounted host path.
+5. Both workflow YAML files validated: `python -c "import yaml;
+   yaml.safe_load(open(f))"` for each — no syntax errors.
+
+**Not verified** (same limitation as the original Task 8, now split across two
+files): no real Databricks workspace or GitHub OIDC federation was available to
+exercise `databricks-cd.yml`'s `deploy` job end to end, or to confirm
+cross-job artifact upload/download actually works inside a real GitHub Actions
+run (only the underlying shell logic was proven locally, not the artifact
+plumbing itself, which only GitHub's own infrastructure can execute).
+
+---
+
 ## Task 9: README for consuming projects
 
 **Files:**

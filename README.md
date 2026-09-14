@@ -21,24 +21,42 @@ notebooks, or Lakeflow pipelines in v1).
   `databricks_local_ci.subprocess_runner.run_entrypoint` to invoke your real
   entry point. See `examples/example_job` for a complete reference.
 
-## Consuming the workflow
+## Consuming the workflows
 
-In your project's own `.github/workflows/ci.yml`:
+Two separate reusable workflows: `databricks-ci.yml` builds the DBR image,
+installs `databricks-local-ci`, builds your wheel with `uv`, runs your tests
+inside the container, and uploads the wheel as a build artifact.
+`databricks-cd.yml` downloads that artifact and runs `databricks bundle deploy`,
+authenticated via GitHub OIDC to a Service Principal — it never runs unless CI
+succeeded first. Wire them together in your project's own
+`.github/workflows/ci-cd.yml`:
 
 ```yaml
-name: CI
-on: [pull_request]
+name: CI/CD
+on: [pull_request, push]
 
 jobs:
-  databricks-ci:
+  test:
     uses: <org>/databricks-local-ci/.github/workflows/databricks-ci.yml@master
     with:
       dbr_version: "15.4-LTS"
       package_dir: "."
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    uses: <org>/databricks-local-ci/.github/workflows/databricks-cd.yml@master
+    with:
+      package_dir: "."
       bundle_target: "prod"
     secrets:
       databricks_host: ${{ secrets.DATABRICKS_HOST }}
+      databricks_client_id: ${{ secrets.DATABRICKS_CLIENT_ID }}
 ```
+
+`databricks_client_id` is the Service Principal's application (client) ID —
+Databricks's GitHub OIDC federation resolves the SPN from this ID plus the
+`github-oidc` auth type; `databricks_host` alone isn't enough to authenticate.
 
 Pin `@master` to a tagged release once this framework has one.
 
@@ -81,13 +99,18 @@ Pin `@master` to a tagged release once this framework has one.
   `docker run`s don't need network access — but that means the *build* itself
   does. A restrictive corporate proxy or an air-gapped self-hosted runner will
   make `docker build` fail at that step; there's no offline fallback in v1.
-- **The `deploy` job's OIDC setup is unverified against a real Databricks
+- **`databricks-cd.yml`'s OIDC setup is unverified against a real Databricks
   workspace.** It needs a Service Principal already federated to your GitHub
   repo's OIDC issuer (Databricks-side setup, not something this workflow does
-  for you), and a `databricks_host` secret on the *calling* repo. Confirm the
-  exact `DATABRICKS_AUTH_TYPE` value and `databricks/setup-cli` usage (pinned
-  to `v1.12.1` here — bump deliberately) against Databricks's current OIDC
-  docs before relying on this in production.
+  for you), plus `databricks_host` and `databricks_client_id` secrets on the
+  *calling* repo. Confirm the exact env var names and `databricks/setup-cli`
+  usage (pinned to `v1.12.1` here — bump deliberately) against Databricks's
+  current OIDC docs before relying on this in production.
+- **The CD workflow assumes your bundle config expects the wheel at
+  `<package_dir>/dist/*.whl`.** `databricks-cd.yml` downloads the artifact
+  straight into that path before running `databricks bundle deploy`. If your
+  `databricks.yml` references the wheel from a different location, adjust
+  where you point your bundle's `artifacts` block, not this workflow.
 - **No Unity Catalog, secrets, cluster policies, or endpoints are exercised
   anywhere in this framework** — the local container has none of the
   Databricks control plane. This is by design (see the linked design doc), not
