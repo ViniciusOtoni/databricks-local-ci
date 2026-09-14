@@ -51,9 +51,6 @@ dev = [
     "delta-spark==3.2.1",
 ]
 
-[project.entry-points.pytest11]
-databricks_local_ci = "databricks_local_ci.fixtures"
-
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -61,6 +58,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 ```
+
+Note: the `pytest11` entry point that registers `databricks_local_ci.fixtures` as a
+plugin is added later, in Task 4, once that module actually exists. Registering it
+here would break every `pytest` invocation in this venv with a plugin-loading
+`ModuleNotFoundError` before `fixtures.py` exists.
 
 - [ ] **Step 3: Create the package init file**
 
@@ -290,7 +292,25 @@ git commit -m "feat: add DBR-based Docker image and smoke test"
 
 **Files:**
 - Create: `src/databricks_local_ci/fixtures.py`
+- Modify: `pyproject.toml`
 - Test: `tests/test_fixtures.py`
+
+- [ ] **Step 0a: Create a placeholder `fixtures.py`**
+
+`src/databricks_local_ci/fixtures.py`: an empty file for now. It must exist
+*before* the pytest plugin entry point below is registered, or every `pytest`
+invocation in this venv crashes at plugin-loading time with a
+`ModuleNotFoundError` instead of a clean test failure.
+
+- [ ] **Step 0b: Register the pytest plugin entry point**
+
+Add this section to `pyproject.toml` (deferred from Task 1 specifically until
+this module exists):
+```toml
+[project.entry-points.pytest11]
+databricks_local_ci = "databricks_local_ci.fixtures"
+```
+Then reinstall so the entry point takes effect: `pip install -e ".[dev]"`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -314,7 +334,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project \
 ```
 Expected: `fixture 'local_spark_session' not found`.
 
-- [ ] **Step 3: Write the implementation**
+- [ ] **Step 3: Write the implementation (replacing the placeholder)**
 
 `src/databricks_local_ci/fixtures.py`:
 ```python
@@ -377,7 +397,7 @@ Expected: `1 passed`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/databricks_local_ci/fixtures.py tests/test_fixtures.py
+git add src/databricks_local_ci/fixtures.py pyproject.toml tests/test_fixtures.py
 git commit -m "feat: add local_spark_session and local_delta_table_path fixtures"
 ```
 
