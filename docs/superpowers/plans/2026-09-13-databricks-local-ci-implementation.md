@@ -836,12 +836,12 @@ jobs:
             --build-arg DBR_TAG=${{ inputs.dbr_version }} \
             -f docker/Dockerfile .
 
-      - name: Build wheel and run the real-run integration tests inside the container
+      - name: Install dev deps, build wheel, install it, and run tests inside the container
         run: |
           docker run --rm -v "${{ github.workspace }}:/workspace/project" \
             -w "/workspace/project/${{ inputs.package_dir }}" \
             databricks-local-ci:${{ inputs.dbr_version }} \
-            bash -c "python -m build --wheel && pip install dist/*.whl && pytest tests/ -v"
+            bash -c "pip install -e '.[dev]' && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
 
   deploy:
     needs: build-and-test
@@ -862,6 +862,15 @@ jobs:
         run: databricks bundle deploy --target ${{ inputs.bundle_target }}
 ```
 
+(The `build-and-test` step installs the consumer package editable with its `dev`
+extra first — `pip install -e '.[dev]'` — before building the wheel. This is what
+actually brings in `databricks-local-ci` and its fixtures/`run_entrypoint`: a
+generic reusable workflow can't assume every consumer's framework dependency lives
+at a repo-relative path the way this monorepo's own `examples/example_job` does.
+The wheel is then built and reinstalled with `--no-deps` — proving the real shipped
+artifact installs and passes, not just the editable checkout — while `pytest`
+still has the dev-extra tooling already in place from the first install.)
+
 - [ ] **Step 2: Make the Dockerfile's base tag configurable via build-arg**
 
 The workflow passes `--build-arg DBR_TAG=...`, so the Dockerfile needs to accept it.
@@ -878,6 +887,22 @@ FROM databricksruntime/python:${DBR_TAG}
 python -c "import yaml; yaml.safe_load(open('.github/workflows/databricks-ci.yml'))" && echo VALID_YAML
 ```
 Expected: `VALID_YAML`
+
+- [ ] **Step 3b: Manually simulate the build-and-test job's actual command**
+
+GitHub Actions itself can't be run from this repo, but the shell logic inside the
+`build-and-test` job can be proven correct right now by running the same command
+the workflow would run, substituting `examples/example_job` for `inputs.package_dir`:
+```bash
+docker build -t databricks-local-ci:15.4-lts --build-arg DBR_TAG=15.4-LTS -f docker/Dockerfile .
+docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
+  databricks-local-ci:15.4-lts bash -c "pip install -e '.[dev]' && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
+```
+(prefix with `MSYS_NO_PATHCONV=1` on Windows Git Bash if `-v` paths get mangled)
+
+Expected: `2 passed`. This is the same command Task 8's `build-and-test` job runs,
+just invoked directly instead of through GitHub Actions — if this fails, the
+workflow YAML will fail identically once triggered for real.
 
 - [ ] **Step 4: Commit**
 
