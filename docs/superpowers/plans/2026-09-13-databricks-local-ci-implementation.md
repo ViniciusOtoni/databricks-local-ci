@@ -432,6 +432,8 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from delta import configure_spark_with_delta_pip
@@ -439,7 +441,7 @@ from pyspark.sql import SparkSession
 
 
 @pytest.fixture(scope="session")
-def local_spark_session():
+def local_spark_session() -> Generator[SparkSession, None, None]:
     """Provides a Delta-enabled local SparkSession for a test session.
 
     Args:
@@ -449,24 +451,27 @@ def local_spark_session():
         A SparkSession configured with Delta Lake support.
     """
     warehouse_dir = tempfile.mkdtemp(prefix="databricks-local-ci-warehouse-")
-    builder = (
-        SparkSession.builder.appName("databricks-local-ci")
-        .master("local[2]")
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
-        .config("spark.sql.warehouse.dir", warehouse_dir)
-        .config("spark.ui.enabled", "false")
-    )
-    spark = configure_spark_with_delta_pip(builder).getOrCreate()
     try:
-        yield spark
+        builder = (
+            SparkSession.builder.appName("databricks-local-ci")
+            .master("local[2]")
+            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+            .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+            .config("spark.sql.warehouse.dir", warehouse_dir)
+            .config("spark.ui.enabled", "false")
+        )
+        spark = configure_spark_with_delta_pip(builder).getOrCreate()
+        spark.sparkContext.setLogLevel("WARN")
+        try:
+            yield spark
+        finally:
+            spark.stop()
     finally:
-        spark.stop()
         shutil.rmtree(warehouse_dir, ignore_errors=True)
 
 
 @pytest.fixture()
-def local_delta_table_path(tmp_path):
+def local_delta_table_path(tmp_path: Path) -> str:
     """Provides a fresh local path to use as a Delta table location.
 
     Args:
@@ -477,6 +482,12 @@ def local_delta_table_path(tmp_path):
     """
     return str(tmp_path / "delta-table")
 ```
+
+(Fixed after code review: `warehouse_dir` cleanup is now nested in its own
+`finally` so it runs even if `getOrCreate()` itself fails or `spark.stop()`
+raises — the original flat `try/finally` only covered failures during the test
+body. Also added return type annotations and `setLogLevel("WARN")` to cut Spark's
+default log noise, since this fixture runs in every consumer project's CI.)
 
 - [ ] **Step 4: Run the test inside the container to verify it passes**
 
