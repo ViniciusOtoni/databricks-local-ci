@@ -742,26 +742,22 @@ def test_example_job_real_run_writes_expected_summary(local_spark_session, tmp_p
     assert rows == {"books": 15.0, "toys": 20.0}
 ```
 
-- [ ] **Step 2: Run the test inside the container to verify it fails**
+- [ ] **Step 2: Run the test inside the container**
 
+Unlike every other TDD cycle in this plan, there's no red state to observe here:
+`transform.py` (Task 5) and `main.py` (Task 6) already exist and are already
+verified working on their own — this task only adds a higher-level test that
+exercises them together via a real subprocess. It should pass on the first run:
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
   databricks-local-ci:15.4-lts bash -c "pip install --no-deps -e /workspace/project && pip install -e . && pytest tests/test_integration.py -v"
 ```
-Expected: fails at the `run_entrypoint(...)` assertion (`result.returncode == 0`) —
-`example_job.main` isn't installed as a console script/module the subprocess's
-Python can see unless the previous `pip install -e .` step succeeded; if it errors
-with `No module named example_job.main` instead, confirm Task 5–6 were committed.
+Expected: `1 passed`. If it fails instead, investigate — don't assume a failure
+here is expected. Common causes: the `pip install -e .` steps didn't run (confirm
+both `--no-deps -e /workspace/project` and `-e .` succeeded), or Task 5/6 weren't
+actually committed to this branch.
 
-- [ ] **Step 3: Fix forward if needed, then run again to verify it passes**
-
-```bash
-docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
-  databricks-local-ci:15.4-lts bash -c "pip install --no-deps -e /workspace/project && pip install -e . && pytest tests/test_integration.py -v"
-```
-Expected: `1 passed`
-
-- [ ] **Step 4: Run the full example test suite together as a final check**
+- [ ] **Step 3: Run the full example test suite together as a final check**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
@@ -769,7 +765,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/ex
 ```
 Expected: `2 passed` (`test_transform.py` and `test_integration.py`).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add examples/example_job/tests/test_integration.py
@@ -779,6 +775,21 @@ git commit -m "test: add real-run integration test for example job"
 ---
 
 ## Task 8: Reusable GitHub Actions workflow
+
+**Before starting — a caveat from Task 6's code review, relevant here because this
+task is what makes it fragile:** `example_job/main.py`'s `run()` deliberately never
+sets `.master(...)` on the SparkSession builder, relying on the fact that PySpark
+in the `databricks-local-ci:15.4-lts` image defaults to local mode when no master
+is configured (verified empirically in this session). This task parameterizes the
+Docker base image via `dbr_version`/`--build-arg DBR_TAG=...`, meaning that
+assumption now has to hold across whatever DBR tags consumers choose, not just
+15.4-LTS. If a future/different DBR tag's image does NOT default to local mode,
+every consumer job's `getOrCreate()` will hang or fail trying to reach a
+nonexistent standalone master, with no obvious link back to this cause. Note this
+as a known limitation in Task 9's README (consumers pinning a new `dbr_version`
+should sanity-check that the base image still defaults to local mode, e.g. via
+Task 3's `docker/smoke_test.py` pattern) rather than silently trusting it holds
+for every tag.
 
 **Files:**
 - Create: `.github/workflows/databricks-ci.yml`
