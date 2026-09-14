@@ -1,1 +1,10 @@
-.worktrees/
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+spark-warehouse/
+metastore_db/
+derby.log
+.pytest_cache/
+dist/
+build/
