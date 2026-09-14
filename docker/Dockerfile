@@ -1,6 +1,10 @@
 ARG DBR_TAG=15.4-LTS
 FROM databricksruntime/python:${DBR_TAG}
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir pyspark==3.5.3 delta-spark==3.2.1 "pytest>=8,<10" uv \
     && ln -sf "$(command -v python3.11)" /usr/local/bin/python
 

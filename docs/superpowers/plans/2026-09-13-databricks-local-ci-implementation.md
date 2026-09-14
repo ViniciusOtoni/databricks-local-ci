@@ -1153,6 +1153,42 @@ cross-job artifact upload/download actually works inside a real GitHub Actions
 run (only the underlying shell logic was proven locally, not the artifact
 plumbing itself, which only GitHub's own infrastructure can execute).
 
+### Follow-up fix: make the install step genuinely external-consumer-safe
+
+Raised directly by the user right after this revision landed: `databricks-ci.yml`
+still had `docker exec ci-container pip install --no-deps -e /workspace/project`
+as its own step, installing the framework from whatever's mounted at
+`/workspace/project` — correct only when the calling repo IS this framework's
+own repo (this monorepo testing its bundled example). For a real external
+consumer repo, `/workspace/project` is *their* checkout, not this one, so that
+step would try to install their own package as if it were `databricks-local-ci`.
+
+**Fix:** drop that step entirely. `databricks-ci.yml` now only runs
+`pip install -e ".[dev]"` — purely generic, exactly what an external consumer's
+CI does. `examples/example_job/pyproject.toml`'s `dev` extra now declares
+`databricks-local-ci @ git+https://github.com/ViniciusOtoni/databricks-local-ci.git@master`
+(a real git URL now that the repo is public — the earlier `file://../..` was
+never a viable fix for this, only ever valid for a literal local path).
+
+This surfaced one more gap: `databricksruntime/python` has no `git` binary, and
+pip needs it on `PATH` to resolve a `git+https://` dependency. Added to
+`docker/Dockerfile`:
+```dockerfile
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+**Verified:** rebuilt the image, then ran the exact `pip install -e ".[dev]"`
+step (no local-path shortcut) against `examples/example_job` in a persistent
+container — pip genuinely cloned `databricks-local-ci` from GitHub
+(`Cloning https://github.com/ViniciusOtoni/databricks-local-ci.git ... Resolved
+... to commit 457538c`), built and installed it, then the full
+build-wheel-with-uv → install → test sequence still produced `2 passed`. This
+is now the same install path a genuinely separate consumer repo would exercise
+— not yet run inside real GitHub Actions, but no longer relying on a shortcut
+that only works inside this monorepo.
+
 ---
 
 ## Task 9: README for consuming projects

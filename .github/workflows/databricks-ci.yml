@@ -39,10 +39,8 @@ jobs:
             databricks-local-ci:${{ inputs.dbr_version }} \
             sleep infinity
 
-      - name: Install databricks-local-ci
-        run: |
-          docker exec ci-container pip install --no-deps -e /workspace/project
-          docker exec ci-container pip install -e ".[dev]"
+      - name: Install databricks-local-ci and dev dependencies
+        run: docker exec ci-container pip install -e ".[dev]"
 
       - name: Build wheel with uv
         run: docker exec ci-container bash -c "rm -rf dist && uv build --wheel"
