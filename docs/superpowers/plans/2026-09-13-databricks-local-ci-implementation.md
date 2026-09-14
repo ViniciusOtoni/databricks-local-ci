@@ -619,7 +619,7 @@ git commit -m "feat: add example job transform logic"
 **Files:**
 - Create: `examples/example_job/src/example_job/main.py`
 
-- [ ] **Step 1: Write the entry point**
+- [x] **Step 1: Write the entry point**
 
 This is intentionally not covered by its own unit test — it's thin argument-parsing
 wiring around `transform.py` (already tested in Task 5) and is exercised end-to-end
@@ -694,7 +694,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add examples/example_job/src/example_job/main.py
