@@ -1,0 +1,57 @@
+name: Databricks CI
+
+on:
+  workflow_call:
+    inputs:
+      dbr_version:
+        description: "databricksruntime/python tag to test against, e.g. 15.4-LTS"
+        required: true
+        type: string
+      package_dir:
+        description: "Path (relative to the caller repo root) to the job package"
+        required: true
+        type: string
+      bundle_target:
+        description: "Databricks Asset Bundle target to deploy, e.g. prod"
+        required: true
+        type: string
+    secrets:
+      databricks_host:
+        required: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build DBR-based test image
+        run: |
+          docker build -t databricks-local-ci:${{ inputs.dbr_version }} \
+            --build-arg DBR_TAG=${{ inputs.dbr_version }} \
+            -f docker/Dockerfile .
+
+      - name: Install databricks-local-ci and dev deps, build wheel, install it, and run tests
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/workspace/project" \
+            -w "/workspace/project/${{ inputs.package_dir }}" \
+            databricks-local-ci:${{ inputs.dbr_version }} \
+            bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: databricks/setup-cli@main
+
+      - name: Deploy bundle
+        working-directory: ${{ inputs.package_dir }}
+        env:
+          DATABRICKS_HOST: ${{ secrets.databricks_host }}
+          DATABRICKS_AUTH_TYPE: github-oidc
+        run: databricks bundle deploy --target ${{ inputs.bundle_target }}

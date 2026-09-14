@@ -1,4 +1,5 @@
-FROM databricksruntime/python:15.4-LTS
+ARG DBR_TAG=15.4-LTS
+FROM databricksruntime/python:${DBR_TAG}
 
 RUN pip install --no-cache-dir pyspark==3.5.3 delta-spark==3.2.1 "pytest>=8,<10" "build>=1.0,<2" \
     && ln -sf "$(command -v python3.11)" /usr/local/bin/python
