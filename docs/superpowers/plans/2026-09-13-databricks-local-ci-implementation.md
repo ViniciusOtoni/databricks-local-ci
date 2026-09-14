@@ -66,8 +66,8 @@ where = ["src"]
 
 `src/databricks_local_ci/__init__.py`:
 ```python
-"""Shared testkit for validating Databricks Python jobs locally before deploy."""
 ```
+(empty file — just marks the directory as a package)
 
 - [ ] **Step 4: Create the host venv and install in editable mode**
 
@@ -143,10 +143,6 @@ Expected: `ModuleNotFoundError: No module named 'databricks_local_ci.subprocess_
 
 `src/databricks_local_ci/subprocess_runner.py`:
 ```python
-"""Runs a job's real CLI entry point as a subprocess, the same way a
-Databricks Job invokes it — not an in-process import. This is what makes the
-integration test a "real run" instead of a unit test poking at internals.
-"""
 from __future__ import annotations
 
 import subprocess
@@ -157,6 +153,8 @@ from pathlib import Path
 
 @dataclass
 class EntrypointResult:
+    """Result of running a module's entry point as a subprocess."""
+
     returncode: int
     stdout: str
     stderr: str
@@ -167,11 +165,15 @@ def run_entrypoint(
     args: list[str] | None = None,
     cwd: str | Path | None = None,
 ) -> EntrypointResult:
-    """Run `python -m <module> [args...]` as a real subprocess and capture the result.
+    """Runs a Python module as a subprocess and captures its result.
 
-    `module` must be importable from `cwd` (or already installed on the
-    current Python's path, e.g. a project's console-script module after
-    `pip install dist/*.whl`).
+    Args:
+        module: Dotted module path to execute via `python -m`.
+        args: Command-line arguments to pass to the module.
+        cwd: Working directory to run the subprocess in.
+
+    Returns:
+        The subprocess's exit code, stdout, and stderr.
     """
     completed = subprocess.run(
         [sys.executable, "-m", module, *(args or [])],
@@ -214,27 +216,22 @@ depends on it.
 
 `docker/Dockerfile`:
 ```dockerfile
-# Databricks Runtime 15.4 LTS -> bundles Apache Spark 3.5.0. Pin this tag to
-# whatever DBR version your production jobs actually run on.
 FROM databricksruntime/python:15.4-LTS
 
-# The base image already ships the exact Python/Spark stack from DBR 15.4 LTS.
-# Install Delta's Python bindings with --no-deps so pip doesn't try to pull in
-# a second, conflicting pyspark on top of the one baked into the image.
 RUN pip install --no-deps delta-spark==3.2.1 \
     && pip install pytest build
 
 WORKDIR /workspace
 ```
 
+(15.4-LTS bundles Apache Spark 3.5.0 — pin this tag to whatever DBR version your
+production jobs actually run on. `--no-deps` avoids pip pulling in a second,
+conflicting pyspark on top of the one already baked into the base image.)
+
 - [ ] **Step 2: Write the smoke test script**
 
 `docker/smoke_test.py`:
 ```python
-"""Run once per new DBR tag to confirm Spark + Delta work together inside the
-container before trusting it for integration tests: `docker run --rm <image>
-python docker/smoke_test.py`.
-"""
 from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
 
@@ -321,12 +318,6 @@ Expected: `fixture 'local_spark_session' not found`.
 
 `src/databricks_local_ci/fixtures.py`:
 ```python
-"""Pytest fixtures shared by every project that consumes this framework.
-
-These fixtures never run the job under test — they only give a test a place
-to write to and a way to read the result back. Running the job itself is
-`subprocess_runner.run_entrypoint`'s job.
-"""
 from __future__ import annotations
 
 import shutil
@@ -339,8 +330,14 @@ from pyspark.sql import SparkSession
 
 @pytest.fixture(scope="session")
 def local_spark_session():
-    """Session-scoped, Delta-enabled SparkSession used only to set up test
-    input tables and to assert on tables a job under test wrote."""
+    """Provides a Delta-enabled local SparkSession for a test session.
+
+    Args:
+        None.
+
+    Returns:
+        A SparkSession configured with Delta Lake support.
+    """
     warehouse_dir = tempfile.mkdtemp(prefix="databricks-local-ci-warehouse-")
     builder = (
         SparkSession.builder.appName("databricks-local-ci")
@@ -358,7 +355,14 @@ def local_spark_session():
 
 @pytest.fixture()
 def local_delta_table_path(tmp_path):
-    """A fresh local directory to use as a Delta table location for one test."""
+    """Provides a fresh local path to use as a Delta table location.
+
+    Args:
+        tmp_path: Pytest's built-in per-test temporary directory.
+
+    Returns:
+        String path to an unused directory under `tmp_path`.
+    """
     return str(tmp_path / "delta-table")
 ```
 
@@ -419,8 +423,8 @@ where = ["src"]
 
 `examples/example_job/src/example_job/__init__.py`:
 ```python
-"""Reference Databricks Job: summarizes sales by category."""
 ```
+(empty file — just marks the directory as a package)
 
 - [ ] **Step 3: Write the failing test**
 
@@ -458,10 +462,13 @@ from pyspark.sql import functions as F
 
 
 def summarize_sales_by_category(sales_df: DataFrame) -> DataFrame:
-    """Aggregate total sale amount per category.
+    """Aggregates total sale amount per category.
 
-    Expects `sales_df` to have columns: category (string), amount (double).
-    Returns a DataFrame with columns: category, total_amount.
+    Args:
+        sales_df: DataFrame with columns `category` (string) and `amount` (double).
+
+    Returns:
+        DataFrame with columns `category` and `total_amount`.
     """
     return sales_df.groupBy("category").agg(F.sum("amount").alias("total_amount"))
 ```
@@ -497,12 +504,6 @@ by the integration test in Task 7.
 
 `examples/example_job/src/example_job/main.py`:
 ```python
-"""CLI entry point — this is exactly what a Databricks Job task invokes in
-production (`python -m example_job.main --input-path ... --output-path ...`),
-and exactly what the integration test invokes via subprocess. Table locations
-are always parameters, never hardcoded: in production they're Unity
-Catalog-governed storage paths, in tests they're local temp paths.
-"""
 from __future__ import annotations
 
 import argparse
@@ -514,6 +515,14 @@ from example_job.transform import summarize_sales_by_category
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """Builds the CLI argument parser for this job.
+
+    Args:
+        None.
+
+    Returns:
+        Configured ArgumentParser with `--input-path` and `--output-path`.
+    """
     parser = argparse.ArgumentParser(description="Summarize sales by category")
     parser.add_argument("--input-path", required=True, help="Delta table location to read sales from")
     parser.add_argument("--output-path", required=True, help="Delta table location to write the summary to")
@@ -521,6 +530,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def run(input_path: str, output_path: str) -> None:
+    """Reads sales from a Delta table, summarizes them, and writes the result.
+
+    Args:
+        input_path: Delta table location to read sales from.
+        output_path: Delta table location to write the summary to.
+
+    Returns:
+        None.
+    """
     builder = SparkSession.builder.appName("example-job")
     spark = configure_spark_with_delta_pip(builder).getOrCreate()
     try:
@@ -533,6 +551,14 @@ def run(input_path: str, output_path: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Parses CLI arguments and runs the job.
+
+    Args:
+        argv: Command-line arguments, or None to use `sys.argv`.
+
+    Returns:
+        None.
+    """
     args = build_arg_parser().parse_args(argv)
     run(args.input_path, args.output_path)
 
