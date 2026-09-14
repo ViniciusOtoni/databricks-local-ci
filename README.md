@@ -62,22 +62,26 @@ Pin `@master` to a tagged release once this framework has one.
 
 ## Known limitations (read before adopting)
 
-- **Not yet validated for external consumer repos.** The `build-and-test` job
-  installs `databricks-local-ci` via `pip install --no-deps -e
-  <checked-out-repo>` — proven so far only against this monorepo testing its
-  own bundled `examples/example_job`, where the framework's source and the
-  example live in the same checkout. A real external repo doesn't have this
-  framework's source in its own checkout, so this install step won't resolve
-  correctly there yet. Until `databricks-local-ci` is published (PyPI, or a
-  pinned git URL consumers can add to their own `pyproject.toml` dev extra),
-  treat this workflow as proven for in-repo dogfooding only.
+- **Add `databricks-local-ci` to your own project's `dev` extra as a git
+  dependency** — `databricks-ci.yml` only runs `pip install -e ".[dev]"`
+  inside the container; it doesn't install the framework separately. See
+  `examples/example_job/pyproject.toml` for the exact syntax:
+  `databricks-local-ci @ git+https://github.com/<org>/databricks-local-ci.git@master`.
+  This is genuinely proven to work for a repo other than this one's own bundled
+  example (`example_job`'s own CI now installs it this same way — via a real
+  `git clone` of this public repo — not via a local path shortcut). What's
+  *not* yet proven is a real GitHub Actions run of a truly separate consumer
+  repo calling these reusable workflows over `uses:`; only the underlying
+  shell/pip mechanics have been verified locally.
 - **Don't declare `databricks-local-ci` as a relative `file://` path
   dependency.** An earlier draft of `examples/example_job/pyproject.toml` tried
   `databricks-local-ci @ file://../..` in its `dev` extra — pip rejects
   relative `file://` URIs outright (`non-local file URIs are not supported on
-  this platform`). If you need a local, editable install for development,
-  install it as a separate `pip install -e <path>` command, not as a
-  dependency string.
+  this platform`). Use a `git+https://` URL (see above) instead.
+- **The Docker image needs `git` on `PATH` to resolve a `git+https://` dev
+  dependency.** `databricksruntime/python` doesn't ship it — the Dockerfile
+  installs it via `apt-get install git`. If you customize the Dockerfile,
+  don't drop this layer.
 - **The `.master()` omission in your job's `SparkSession` builder depends on
   the DBR image defaulting to local mode.** `example_job/main.py` never calls
   `.master(...)` — production Databricks Jobs get that from the platform, and

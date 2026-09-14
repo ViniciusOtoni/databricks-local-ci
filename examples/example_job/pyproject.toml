@@ -11,6 +11,7 @@ example-job = "example_job.main:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8,<10",
+    "databricks-local-ci @ git+https://github.com/ViniciusOtoni/databricks-local-ci.git@master",
 ]
 
 [build-system]
