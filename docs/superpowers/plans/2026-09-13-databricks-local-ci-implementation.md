@@ -971,7 +971,7 @@ workspace.
 **Files:**
 - Create: `README.md`
 
-- [ ] **Step 1: Write the README**
+- [x] **Step 1: Write the README**
 
 `README.md`:
 ```markdown
@@ -1071,7 +1071,7 @@ Pin `@master` to a tagged release once this framework has one.
   a gap to file an issue about.
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add README.md
