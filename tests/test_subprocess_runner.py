@@ -24,3 +24,23 @@ def test_run_entrypoint_captures_nonzero_exit_code(tmp_path: Path):
     result = run_entrypoint("dummy_fail", cwd=tmp_path)
 
     assert result.returncode == 3
+
+
+def test_run_entrypoint_captures_stderr(tmp_path: Path):
+    (tmp_path / "dummy_stderr.py").write_text(
+        "import sys\n"
+        "print('boom', file=sys.stderr)\n"
+        "sys.exit(1)\n"
+    )
+
+    result = run_entrypoint("dummy_stderr", cwd=tmp_path)
+
+    assert result.returncode == 1
+    assert "boom" in result.stderr
+
+
+def test_run_entrypoint_module_not_found(tmp_path: Path):
+    result = run_entrypoint("this_module_does_not_exist", cwd=tmp_path)
+
+    assert result.returncode != 0
+    assert "No module named" in result.stderr
