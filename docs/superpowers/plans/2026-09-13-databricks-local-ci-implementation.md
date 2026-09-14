@@ -103,7 +103,7 @@ task in this plan — it can be developed and tested directly on the host venv.
 - Create: `src/databricks_local_ci/subprocess_runner.py`
 - Test: `tests/test_subprocess_runner.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_subprocess_runner.py`:
 ```python
@@ -157,13 +157,13 @@ def test_run_entrypoint_reports_missing_module_as_data_not_exception(tmp_path: P
 tests — stderr capture, and pinning that a missing module comes back as data in
 `EntrypointResult` rather than raising, so a future `check=True` accident is caught.)
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/test_subprocess_runner.py -v`
 Expected: `ModuleNotFoundError: No module named 'databricks_local_ci.subprocess_runner'`
 (collection error — the module doesn't exist yet).
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `src/databricks_local_ci/subprocess_runner.py`:
 ```python
@@ -218,12 +218,12 @@ def run_entrypoint(
     )
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/test_subprocess_runner.py -v`
 Expected: `2 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/databricks_local_ci/subprocess_runner.py tests/test_subprocess_runner.py
