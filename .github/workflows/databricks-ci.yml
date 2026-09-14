@@ -1,0 +1,64 @@
+name: Databricks CI
+
+on:
+  workflow_call:
+    inputs:
+      dbr_version:
+        description: "databricksruntime/python tag to test against, e.g. 15.4-LTS"
+        required: true
+        type: string
+      package_dir:
+        description: "Path (relative to the caller repo root) to the job package"
+        required: true
+        type: string
+      artifact_name:
+        description: "Name of the uploaded wheel artifact, consumed by databricks-cd.yml"
+        required: false
+        type: string
+        default: "databricks-wheel"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build DBR-based test image
+        run: |
+          docker build -t databricks-local-ci:${{ inputs.dbr_version }} \
+            --build-arg DBR_TAG=${{ inputs.dbr_version }} \
+            -f docker/Dockerfile .
+
+      - name: Start build container
+        run: |
+          docker run -d --name ci-container \
+            -v "${{ github.workspace }}:/workspace/project" \
+            -w "/workspace/project/${{ inputs.package_dir }}" \
+            databricks-local-ci:${{ inputs.dbr_version }} \
+            sleep infinity
+
+      - name: Install databricks-local-ci
+        run: |
+          docker exec ci-container pip install --no-deps -e /workspace/project
+          docker exec ci-container pip install -e ".[dev]"
+
+      - name: Build wheel with uv
+        run: docker exec ci-container bash -c "rm -rf dist && uv build --wheel"
+
+      - name: Install the built wheel
+        run: docker exec ci-container bash -c "pip install --force-reinstall --no-deps dist/*.whl"
+
+      - name: Run application tests
+        run: docker exec ci-container pytest tests/ -v
+
+      - name: Stop build container
+        if: always()
+        run: docker rm -f ci-container
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.package_dir }}/dist/*.whl
+          if-no-files-found: error

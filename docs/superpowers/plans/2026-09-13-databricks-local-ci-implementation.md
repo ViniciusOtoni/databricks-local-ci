@@ -19,7 +19,7 @@
 - Create: `pyproject.toml`
 - Create: `src/databricks_local_ci/__init__.py`
 
-- [ ] **Step 1: Create `.gitignore`**
+- [x] **Step 1: Create `.gitignore`**
 
 ```
 __pycache__/
@@ -34,7 +34,7 @@ dist/
 build/
 ```
 
-- [ ] **Step 2: Create `pyproject.toml`**
+- [x] **Step 2: Create `pyproject.toml`**
 
 ```toml
 [project]
@@ -64,14 +64,14 @@ plugin is added later, in Task 4, once that module actually exists. Registering 
 here would break every `pytest` invocation in this venv with a plugin-loading
 `ModuleNotFoundError` before `fixtures.py` exists.
 
-- [ ] **Step 3: Create the package init file**
+- [x] **Step 3: Create the package init file**
 
 `src/databricks_local_ci/__init__.py`:
 ```python
 ```
 (empty file — just marks the directory as a package)
 
-- [ ] **Step 4: Create the host venv and install in editable mode**
+- [x] **Step 4: Create the host venv and install in editable mode**
 
 Run (from the repo root, in `bash`):
 ```bash
@@ -83,7 +83,7 @@ pip install -e ".[dev]"
 Expected: no errors; `pip show databricks-local-ci` afterward shows `Version: 0.1.0` and
 `Editable project location` pointing at the repo.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .gitignore pyproject.toml src/databricks_local_ci/__init__.py
@@ -103,7 +103,7 @@ task in this plan — it can be developed and tested directly on the host venv.
 - Create: `src/databricks_local_ci/subprocess_runner.py`
 - Test: `tests/test_subprocess_runner.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_subprocess_runner.py`:
 ```python
@@ -157,13 +157,13 @@ def test_run_entrypoint_reports_missing_module_as_data_not_exception(tmp_path: P
 tests — stderr capture, and pinning that a missing module comes back as data in
 `EntrypointResult` rather than raising, so a future `check=True` accident is caught.)
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pytest tests/test_subprocess_runner.py -v`
 Expected: `ModuleNotFoundError: No module named 'databricks_local_ci.subprocess_runner'`
 (collection error — the module doesn't exist yet).
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `src/databricks_local_ci/subprocess_runner.py`:
 ```python
@@ -218,12 +218,12 @@ def run_entrypoint(
     )
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/test_subprocess_runner.py -v`
 Expected: `2 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/databricks_local_ci/subprocess_runner.py tests/test_subprocess_runner.py
@@ -243,7 +243,7 @@ depends on it.
 - Create: `.dockerignore`
 - Create: `docker/smoke_test.py`
 
-- [ ] **Step 0: Write the build-context ignore file**
+- [x] **Step 0: Write the build-context ignore file**
 
 `.dockerignore` at the **repo root** (Docker only auto-applies a `.dockerignore`
 found in the build context directory — Step 3's build command uses `-f
@@ -264,7 +264,7 @@ dist/
 build/
 ```
 
-- [ ] **Step 1: Write the Dockerfile**
+- [x] **Step 1: Write the Dockerfile**
 
 `docker/Dockerfile`:
 ```dockerfile
@@ -296,7 +296,7 @@ that doesn't exist. The image also has no unversioned `python` on `PATH` — onl
 Python 3.11's site-packages — so we symlink `python` to `python3.11` to keep the
 interpreter that runs code consistent with the one `pip` installs into.)
 
-- [ ] **Step 2: Write the smoke test script**
+- [x] **Step 2: Write the smoke test script**
 
 `docker/smoke_test.py`:
 ```python
@@ -323,7 +323,7 @@ spark.stop()
 print("SMOKE_OK")
 ```
 
-- [ ] **Step 3: Build the image**
+- [x] **Step 3: Build the image**
 
 Run (from the repo root):
 ```bash
@@ -333,7 +333,7 @@ Expected: build completes successfully, ending with
 `Successfully tagged databricks-local-ci:15.4-lts` (or the buildkit equivalent
 `naming to docker.io/library/databricks-local-ci:15.4-lts`).
 
-- [ ] **Step 4: Run the smoke test inside the container**
+- [x] **Step 4: Run the smoke test inside the container**
 
 ```bash
 docker run --rm -v "$(pwd)/docker:/workspace/docker" databricks-local-ci:15.4-lts \
@@ -345,7 +345,7 @@ Expected: last line of output is `SMOKE_OK`.
 conversion — if you see something like `ls: cannot access '/workspace/docker'`,
 prefix the command with `MSYS_NO_PATHCONV=1`.)
 
-- [ ] **Step 4b: Confirm the Delta JAR cache warm-up is actually being used**
+- [x] **Step 4b: Confirm the Delta JAR cache warm-up is actually being used**
 
 Re-run Step 4 with Ivy's resolution log visible (it's on by default) and check the
 resolution report in the output:
@@ -364,7 +364,7 @@ calls `InetAddress.getLocalHost()` during log4j init, which fails on
 long before Spark's code ever reaches Ivy/Delta resolution. That failure means
 nothing about whether the cache works; don't use it as a signal.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docker/Dockerfile .dockerignore docker/smoke_test.py
@@ -380,14 +380,14 @@ git commit -m "feat: add DBR-based Docker image and smoke test"
 - Modify: `pyproject.toml`
 - Test: `tests/test_fixtures.py`
 
-- [ ] **Step 0a: Create a placeholder `fixtures.py`**
+- [x] **Step 0a: Create a placeholder `fixtures.py`**
 
 `src/databricks_local_ci/fixtures.py`: an empty file for now. It must exist
 *before* the pytest plugin entry point below is registered, or every `pytest`
 invocation in this venv crashes at plugin-loading time with a
 `ModuleNotFoundError` instead of a clean test failure.
 
-- [ ] **Step 0b: Register the pytest plugin entry point**
+- [x] **Step 0b: Register the pytest plugin entry point**
 
 Add this section to `pyproject.toml` (deferred from Task 1 specifically until
 this module exists):
@@ -402,7 +402,7 @@ since editable installs cache entry-point metadata that only refreshes on
 reinstall, and an un-refreshed host venv would crash every `pytest` invocation
 there the same way Task 1's premature registration did.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `tests/test_fixtures.py`:
 ```python
@@ -416,7 +416,7 @@ def test_local_spark_session_reads_and_writes_delta(local_spark_session, local_d
     assert sorted(row["value"] for row in result.collect()) == ["a", "b"]
 ```
 
-- [ ] **Step 2: Run the test inside the container to verify it fails**
+- [x] **Step 2: Run the test inside the container to verify it fails**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project \
@@ -424,7 +424,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project \
 ```
 Expected: `fixture 'local_spark_session' not found`.
 
-- [ ] **Step 3: Write the implementation (replacing the placeholder)**
+- [x] **Step 3: Write the implementation (replacing the placeholder)**
 
 `src/databricks_local_ci/fixtures.py`:
 ```python
@@ -489,7 +489,7 @@ raises — the original flat `try/finally` only covered failures during the test
 body. Also added return type annotations and `setLogLevel("WARN")` to cut Spark's
 default log noise, since this fixture runs in every consumer project's CI.)
 
-- [ ] **Step 4: Run the test inside the container to verify it passes**
+- [x] **Step 4: Run the test inside the container to verify it passes**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project \
@@ -497,7 +497,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project \
 ```
 Expected: `1 passed`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/databricks_local_ci/fixtures.py pyproject.toml tests/test_fixtures.py
@@ -514,7 +514,7 @@ git commit -m "feat: add local_spark_session and local_delta_table_path fixtures
 - Create: `examples/example_job/src/example_job/transform.py`
 - Test: `examples/example_job/tests/test_transform.py`
 
-- [ ] **Step 1: Create the example project's `pyproject.toml`**
+- [x] **Step 1: Create the example project's `pyproject.toml`**
 
 `examples/example_job/pyproject.toml`:
 ```toml
@@ -531,7 +531,6 @@ example-job = "example_job.main:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8,<10",
-    "databricks-local-ci @ file://../..",
 ]
 
 [build-system]
@@ -542,14 +541,23 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 ```
 
-- [ ] **Step 2: Create the package init file**
+(Fixed during Task 8: the original `dev` extra also listed
+`"databricks-local-ci @ file://../.."`, which is invalid — pip rejects relative
+`file://` URIs outright with `non-local file URIs are not supported on this
+platform`. This was never caught by Tasks 5-7 because their manual commands
+always installed `databricks-local-ci` as a separate, explicit
+`pip install --no-deps -e /workspace/project` step and never resolved the `dev`
+extra. Task 8's workflow does the same explicit install as its own step — see
+below — so the framework dependency doesn't need to live in this file at all.)
+
+- [x] **Step 2: Create the package init file**
 
 `examples/example_job/src/example_job/__init__.py`:
 ```python
 ```
 (empty file — just marks the directory as a package)
 
-- [ ] **Step 3: Write the failing test**
+- [x] **Step 3: Write the failing test**
 
 `examples/example_job/tests/test_transform.py`:
 ```python
@@ -568,7 +576,7 @@ def test_summarize_sales_by_category(local_spark_session):
     assert rows == {"books": 15.0, "toys": 20.0}
 ```
 
-- [ ] **Step 4: Run the test inside the container to verify it fails**
+- [x] **Step 4: Run the test inside the container to verify it fails**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
@@ -576,7 +584,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/ex
 ```
 Expected: `ModuleNotFoundError: No module named 'example_job.transform'`.
 
-- [ ] **Step 5: Write the implementation**
+- [x] **Step 5: Write the implementation**
 
 `examples/example_job/src/example_job/transform.py`:
 ```python
@@ -596,7 +604,7 @@ def summarize_sales_by_category(sales_df: DataFrame) -> DataFrame:
     return sales_df.groupBy("category").agg(F.sum("amount").alias("total_amount"))
 ```
 
-- [ ] **Step 6: Run the test inside the container to verify it passes**
+- [x] **Step 6: Run the test inside the container to verify it passes**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
@@ -604,7 +612,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/ex
 ```
 Expected: `1 passed`
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add examples/example_job/pyproject.toml examples/example_job/src/example_job/__init__.py \
@@ -619,7 +627,7 @@ git commit -m "feat: add example job transform logic"
 **Files:**
 - Create: `examples/example_job/src/example_job/main.py`
 
-- [ ] **Step 1: Write the entry point**
+- [x] **Step 1: Write the entry point**
 
 This is intentionally not covered by its own unit test — it's thin argument-parsing
 wiring around `transform.py` (already tested in Task 5) and is exercised end-to-end
@@ -694,7 +702,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add examples/example_job/src/example_job/main.py
@@ -712,7 +720,7 @@ table the subprocess wrote — a genuine execution of the shipped artifact.
 **Files:**
 - Test: `examples/example_job/tests/test_integration.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `examples/example_job/tests/test_integration.py`:
 ```python
@@ -732,36 +740,37 @@ def test_example_job_real_run_writes_expected_summary(local_spark_session, tmp_p
     result = run_entrypoint(
         "example_job.main",
         args=["--input-path", input_path, "--output-path", output_path],
+        timeout=120,
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Wrote summary to" in result.stdout
+    assert "Wrote summary to" in result.stdout, result.stdout
 
     summary_df = local_spark_session.read.format("delta").load(output_path)
     rows = {row["category"]: row["total_amount"] for row in summary_df.collect()}
     assert rows == {"books": 15.0, "toys": 20.0}
 ```
 
-- [ ] **Step 2: Run the test inside the container to verify it fails**
+(Added after code review: a `timeout` so a hung job fails fast instead of hanging
+CI, and a diagnostic message on the stdout assertion for symmetry with the
+returncode check above it.)
 
+- [x] **Step 2: Run the test inside the container**
+
+Unlike every other TDD cycle in this plan, there's no red state to observe here:
+`transform.py` (Task 5) and `main.py` (Task 6) already exist and are already
+verified working on their own — this task only adds a higher-level test that
+exercises them together via a real subprocess. It should pass on the first run:
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
   databricks-local-ci:15.4-lts bash -c "pip install --no-deps -e /workspace/project && pip install -e . && pytest tests/test_integration.py -v"
 ```
-Expected: fails at the `run_entrypoint(...)` assertion (`result.returncode == 0`) —
-`example_job.main` isn't installed as a console script/module the subprocess's
-Python can see unless the previous `pip install -e .` step succeeded; if it errors
-with `No module named example_job.main` instead, confirm Task 5–6 were committed.
+Expected: `1 passed`. If it fails instead, investigate — don't assume a failure
+here is expected. Common causes: the `pip install -e .` steps didn't run (confirm
+both `--no-deps -e /workspace/project` and `-e .` succeeded), or Task 5/6 weren't
+actually committed to this branch.
 
-- [ ] **Step 3: Fix forward if needed, then run again to verify it passes**
-
-```bash
-docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
-  databricks-local-ci:15.4-lts bash -c "pip install --no-deps -e /workspace/project && pip install -e . && pytest tests/test_integration.py -v"
-```
-Expected: `1 passed`
-
-- [ ] **Step 4: Run the full example test suite together as a final check**
+- [x] **Step 3: Run the full example test suite together as a final check**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
@@ -769,7 +778,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/ex
 ```
 Expected: `2 passed` (`test_transform.py` and `test_integration.py`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add examples/example_job/tests/test_integration.py
@@ -780,10 +789,27 @@ git commit -m "test: add real-run integration test for example job"
 
 ## Task 8: Reusable GitHub Actions workflow
 
+**Before starting — a caveat from Task 6's code review, relevant here because this
+task is what makes it fragile:** `example_job/main.py`'s `run()` deliberately never
+sets `.master(...)` on the SparkSession builder, relying on the fact that PySpark
+in the `databricks-local-ci:15.4-lts` image defaults to local mode when no master
+is configured (verified empirically in this session). This task parameterizes the
+Docker base image via `dbr_version`/`--build-arg DBR_TAG=...`, meaning that
+assumption now has to hold across whatever DBR tags consumers choose, not just
+15.4-LTS. If a future/different DBR tag's image does NOT default to local mode,
+every consumer job's `getOrCreate()` will hang or fail trying to reach a
+nonexistent standalone master, with no obvious link back to this cause. Note this
+as a known limitation in Task 9's README (consumers pinning a new `dbr_version`
+should sanity-check that the base image still defaults to local mode, e.g. via
+Task 3's `docker/smoke_test.py` pattern) rather than silently trusting it holds
+for every tag.
+
 **Files:**
 - Create: `.github/workflows/databricks-ci.yml`
+- Modify: `docker/Dockerfile`
+- Modify: `examples/example_job/pyproject.toml`
 
-- [ ] **Step 1: Write the reusable workflow**
+- [x] **Step 1: Write the reusable workflow**
 
 `.github/workflows/databricks-ci.yml`:
 ```yaml
@@ -820,12 +846,12 @@ jobs:
             --build-arg DBR_TAG=${{ inputs.dbr_version }} \
             -f docker/Dockerfile .
 
-      - name: Build wheel and run the real-run integration tests inside the container
+      - name: Install databricks-local-ci and dev deps, build wheel, install it, and run tests
         run: |
           docker run --rm -v "${{ github.workspace }}:/workspace/project" \
             -w "/workspace/project/${{ inputs.package_dir }}" \
             databricks-local-ci:${{ inputs.dbr_version }} \
-            bash -c "python -m build --wheel && pip install dist/*.whl && pytest tests/ -v"
+            bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && rm -rf dist && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
 
   deploy:
     needs: build-and-test
@@ -836,7 +862,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: databricks/setup-cli@main
+      - uses: databricks/setup-cli@v1.12.1
 
       - name: Deploy bundle
         working-directory: ${{ inputs.package_dir }}
@@ -846,7 +872,30 @@ jobs:
         run: databricks bundle deploy --target ${{ inputs.bundle_target }}
 ```
 
-- [ ] **Step 2: Make the Dockerfile's base tag configurable via build-arg**
+(Fixed after code review: `databricks/setup-cli` is now pinned to `v1.12.1`
+instead of the floating `@main` ref — a *reusable* workflow shouldn't let an
+upstream change to `main` silently break every consumer's deploy job at once.
+Bump this deliberately when adopting a newer CLI version. The wheel build step
+also gained `rm -rf dist &&` before `python -m build --wheel`, guarding the
+`dist/*.whl` glob against matching a stale wheel left over from a prior local run
+against the same bind-mounted checkout — low-risk in fresh CI, but a real footgun
+in the local reproduction command below.)
+
+(The `build-and-test` step installs `databricks-local-ci` itself first — via
+`pip install --no-deps -e /workspace/project`, the exact pattern already proven in
+Tasks 4-7 — then installs the consumer package editable with its `dev` extra
+(`pytest`, etc.), then builds the wheel and reinstalls it with `--no-deps` to prove
+the real shipped artifact installs and passes, not just the editable checkout.
+
+**Known limitation, not fixed in this task:** `/workspace/project` is mounted from
+`github.workspace`, which is *this framework's own repo* when the workflow tests
+its bundled `examples/example_job` — that's the only scenario validated here. A
+genuinely external consumer repo would need `databricks-local-ci` installed from
+somewhere that isn't "the calling repo's own checkout" (PyPI once published, or a
+pinned git URL) — this workflow doesn't yet handle that case, and Task 9's README
+should say so explicitly rather than implying this is proven for external repos.)
+
+- [x] **Step 2: Make the Dockerfile's base tag configurable via build-arg**
 
 The workflow passes `--build-arg DBR_TAG=...`, so the Dockerfile needs to accept it.
 
@@ -856,17 +905,54 @@ ARG DBR_TAG=15.4-LTS
 FROM databricksruntime/python:${DBR_TAG}
 ```
 
-- [ ] **Step 3: Verify the workflow file is valid YAML**
+- [x] **Step 2b: Remove the broken framework self-reference from the example job**
+
+`examples/example_job/pyproject.toml`'s `dev` extra currently has:
+```toml
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<10",
+    "databricks-local-ci @ file://../..",
+]
+```
+Remove the `databricks-local-ci @ file://../..` line — it's invalid (pip rejects
+relative `file://` URIs), and it's redundant now anyway since the workflow's
+`build-and-test` step installs `databricks-local-ci` as its own explicit step
+before touching this file's `dev` extra. Result:
+```toml
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<10",
+]
+```
+
+- [x] **Step 3: Verify the workflow file is valid YAML**
 
 ```bash
 python -c "import yaml; yaml.safe_load(open('.github/workflows/databricks-ci.yml'))" && echo VALID_YAML
 ```
 Expected: `VALID_YAML`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 3b: Manually simulate the build-and-test job's actual command**
+
+GitHub Actions itself can't be run from this repo, but the shell logic inside the
+`build-and-test` job can be proven correct right now by running the same command
+the workflow would run, substituting `examples/example_job` for `inputs.package_dir`:
+```bash
+docker build -t databricks-local-ci:15.4-lts --build-arg DBR_TAG=15.4-LTS -f docker/Dockerfile .
+docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
+  databricks-local-ci:15.4-lts bash -c "pip install --no-deps -e /workspace/project && pip install -e '.[dev]' && rm -rf dist && python -m build --wheel && pip install --force-reinstall --no-deps dist/*.whl && pytest tests/ -v"
+```
+(prefix with `MSYS_NO_PATHCONV=1` on Windows Git Bash if `-v` paths get mangled)
+
+Expected: `2 passed`. This is the same command Task 8's `build-and-test` job runs,
+just invoked directly instead of through GitHub Actions — if this fails, the
+workflow YAML will fail identically once triggered for real.
+
+- [x] **Step 4: Commit**
 
 ```bash
-git add .github/workflows/databricks-ci.yml docker/Dockerfile
+git add .github/workflows/databricks-ci.yml docker/Dockerfile examples/example_job/pyproject.toml
 git commit -m "feat: add reusable GitHub Actions workflow (build-and-test + deploy)"
 ```
 
@@ -880,12 +966,201 @@ workspace.
 
 ---
 
+## Task 8 revision: split into separate CI and CD workflows
+
+Requested directly by the user after Task 8 originally landed: replace the
+single `databricks-ci.yml` file's two jobs (`build-and-test` + `deploy`) with
+**two separate reusable workflows**, artifact-linked instead of `needs:`-linked,
+and rebuild the wheel with **uv** instead of the stdlib `build` package.
+
+**Why this shape:** a consumer's own top-level workflow now calls both
+reusable workflows as sibling jobs (`test` then `deploy`, `deploy` gated by
+`needs: test`). Because both `uses:` calls execute as jobs of the *same*
+top-level workflow run, `actions/upload-artifact` in the CI job and
+`actions/download-artifact` in the CD job share that run's artifact store with
+no cross-run wiring needed.
+
+**Files:**
+- Modify: `docker/Dockerfile` — swap the `build` package for `uv`
+- Modify: `.github/workflows/databricks-ci.yml` — granular named steps via a
+  persistent named container (`docker run -d ... sleep infinity` +
+  `docker exec` per step, so installed state survives across steps instead of
+  each step re-paying a fresh `docker run`'s cost); ends by uploading the built
+  wheel as an artifact instead of gating a `deploy` job
+- Create: `.github/workflows/databricks-cd.yml` — new reusable workflow:
+  downloads the wheel artifact, then runs `databricks bundle deploy`
+- Modify: `README.md` — two-workflow consumption example, updated known
+  limitations
+
+**`docker/Dockerfile`:** replace `"build>=1.0,<2"` in the pip install line with
+`uv` (verified: `uv build --wheel` works against the existing setuptools
+backend with no `pyproject.toml` changes needed — `uv build` is a PEP 517
+frontend, backend-agnostic).
+
+**`.github/workflows/databricks-ci.yml`** — full replacement:
+```yaml
+name: Databricks CI
+
+on:
+  workflow_call:
+    inputs:
+      dbr_version:
+        description: "databricksruntime/python tag to test against, e.g. 15.4-LTS"
+        required: true
+        type: string
+      package_dir:
+        description: "Path (relative to the caller repo root) to the job package"
+        required: true
+        type: string
+      artifact_name:
+        description: "Name of the uploaded wheel artifact, consumed by databricks-cd.yml"
+        required: false
+        type: string
+        default: "databricks-wheel"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build DBR-based test image
+        run: |
+          docker build -t databricks-local-ci:${{ inputs.dbr_version }} \
+            --build-arg DBR_TAG=${{ inputs.dbr_version }} \
+            -f docker/Dockerfile .
+
+      - name: Start build container
+        run: |
+          docker run -d --name ci-container \
+            -v "${{ github.workspace }}:/workspace/project" \
+            -w "/workspace/project/${{ inputs.package_dir }}" \
+            databricks-local-ci:${{ inputs.dbr_version }} \
+            sleep infinity
+
+      - name: Install databricks-local-ci
+        run: |
+          docker exec ci-container pip install --no-deps -e /workspace/project
+          docker exec ci-container pip install -e ".[dev]"
+
+      - name: Build wheel with uv
+        run: docker exec ci-container bash -c "rm -rf dist && uv build --wheel"
+
+      - name: Install the built wheel
+        run: docker exec ci-container bash -c "pip install --force-reinstall --no-deps dist/*.whl"
+
+      - name: Run application tests
+        run: docker exec ci-container pytest tests/ -v
+
+      - name: Stop build container
+        if: always()
+        run: docker rm -f ci-container
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.package_dir }}/dist/*.whl
+          if-no-files-found: error
+```
+
+(`bundle_target` is no longer an input here — deploy moved entirely to
+`databricks-cd.yml`. The bind mount means `dist/` built inside the container at
+`/workspace/project/<package_dir>/dist` is the same filesystem location as
+`${{ github.workspace }}/<package_dir>/dist` on the runner — no copy-out step
+needed before `upload-artifact`.)
+
+**`.github/workflows/databricks-cd.yml`** — new file:
+```yaml
+name: Databricks CD
+
+on:
+  workflow_call:
+    inputs:
+      package_dir:
+        description: "Path (relative to the caller repo root) to the bundle/job package"
+        required: true
+        type: string
+      bundle_target:
+        description: "Databricks Asset Bundle target to deploy, e.g. prod"
+        required: true
+        type: string
+      artifact_name:
+        description: "Name of the wheel artifact to download, produced by databricks-ci.yml"
+        required: false
+        type: string
+        default: "databricks-wheel"
+    secrets:
+      databricks_host:
+        required: true
+      databricks_client_id:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.package_dir }}/dist
+
+      - uses: databricks/setup-cli@v1.12.1
+
+      - name: Deploy bundle
+        working-directory: ${{ inputs.package_dir }}
+        env:
+          DATABRICKS_HOST: ${{ secrets.databricks_host }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.databricks_client_id }}
+          DATABRICKS_AUTH_TYPE: github-oidc
+        run: databricks bundle deploy --target ${{ inputs.bundle_target }}
+```
+
+(`DATABRICKS_CLIENT_ID` is a fix, not scope creep: researched during this
+revision — Databricks's GitHub OIDC federation needs the Service Principal's
+application/client ID alongside `DATABRICKS_AUTH_TYPE=github-oidc` and
+`DATABRICKS_HOST`; the original Task 8 draft was missing it entirely, which
+would have made the original `deploy` job fail authentication even with
+correct federation configured on the Databricks side.)
+
+**Verification performed** (manually, via a persistent named container mirroring
+the workflow's own steps exactly, against `examples/example_job`):
+1. Rebuilt the image with `uv` installed — confirmed `uv --version` runs.
+2. `docker run -d --name ci-container ... sleep infinity`, then `docker exec`
+   for each step in order: install `databricks-local-ci`, install dev deps,
+   `rm -rf dist && uv build --wheel` (produced
+   `example_job-0.1.0-py3-none-any.whl` — `uv build` worked against the
+   existing setuptools backend with zero config changes), install the built
+   wheel, run tests.
+3. `pytest tests/ -v` → `2 passed` (`test_example_job_real_run_writes_expected_summary`,
+   `test_summarize_sales_by_category`) — the uv-built, non-editable wheel
+   passes the exact same flagship real-run test as the `build`-based wheel did.
+4. Cleaned up the container and the build artifacts (`dist/`, `*.egg-info/`,
+   `build/`) left on the bind-mounted host path.
+5. Both workflow YAML files validated: `python -c "import yaml;
+   yaml.safe_load(open(f))"` for each — no syntax errors.
+
+**Not verified** (same limitation as the original Task 8, now split across two
+files): no real Databricks workspace or GitHub OIDC federation was available to
+exercise `databricks-cd.yml`'s `deploy` job end to end, or to confirm
+cross-job artifact upload/download actually works inside a real GitHub Actions
+run (only the underlying shell logic was proven locally, not the artifact
+plumbing itself, which only GitHub's own infrastructure can execute).
+
+---
+
 ## Task 9: README for consuming projects
 
 **Files:**
 - Create: `README.md`
 
-- [ ] **Step 1: Write the README**
+- [x] **Step 1: Write the README**
 
 `README.md`:
 ```markdown
@@ -922,7 +1197,7 @@ on: [pull_request]
 
 jobs:
   databricks-ci:
-    uses: <org>/databricks-local-ci/.github/workflows/databricks-ci.yml@main
+    uses: <org>/databricks-local-ci/.github/workflows/databricks-ci.yml@master
     with:
       dbr_version: "15.4-LTS"
       package_dir: "."
@@ -931,10 +1206,61 @@ jobs:
       databricks_host: ${{ secrets.DATABRICKS_HOST }}
 ```
 
-Pin `@main` to a tagged release once this framework has one.
+Pin `@master` to a tagged release once this framework has one.
+
+## Known limitations (read before adopting)
+
+- **Not yet validated for external consumer repos.** The `build-and-test` job
+  installs `databricks-local-ci` via `pip install --no-deps -e
+  <checked-out-repo>` — proven so far only against this monorepo testing its
+  own bundled `examples/example_job`, where the framework's source and the
+  example live in the same checkout. A real external repo doesn't have this
+  framework's source in its own checkout, so this install step won't resolve
+  correctly there yet. Until `databricks-local-ci` is published (PyPI, or a
+  pinned git URL consumers can add to their own `pyproject.toml` dev extra),
+  treat this workflow as proven for in-repo dogfooding only.
+- **Don't declare `databricks-local-ci` as a relative `file://` path
+  dependency.** An earlier draft of `examples/example_job/pyproject.toml` tried
+  `databricks-local-ci @ file://../..` in its `dev` extra — pip rejects
+  relative `file://` URIs outright (`non-local file URIs are not supported on
+  this platform`). If you need a local, editable install for development,
+  install it as a separate `pip install -e <path>` command, not as a
+  dependency string.
+- **The `.master()` omission in your job's `SparkSession` builder depends on
+  the DBR image defaulting to local mode.** `example_job/main.py` never calls
+  `.master(...)` — production Databricks Jobs get that from the platform, and
+  `databricksruntime/python:15.4-LTS` happens to default to local mode when
+  none is set. If you pin a different `dbr_version`, sanity-check that it
+  still defaults to local mode (copy the pattern from `docker/smoke_test.py`
+  in this repo) before trusting your own job's tests — a tag that doesn't
+  default to local mode will hang or fail with a confusing "must set a master
+  URL" error instead of an obvious one.
+- **Run tests inside the Docker container, not directly on a Windows host.**
+  PySpark's Java gateway fails to launch on Windows when the checkout path
+  contains non-ASCII characters (confirmed during this project's own
+  development — its repo happened to live under a path with an accented
+  character). This has nothing to do with your code; it's a PySpark-on-Windows
+  classpath quirk. Always run `pytest` inside the `databricksruntime`-based
+  container, never on the bare host, and this never comes up.
+- **`docker build` needs network access to Maven Central.** The image's second
+  build layer resolves Delta Lake's JAR dependencies via Ivy/Maven so later
+  `docker run`s don't need network access — but that means the *build* itself
+  does. A restrictive corporate proxy or an air-gapped self-hosted runner will
+  make `docker build` fail at that step; there's no offline fallback in v1.
+- **The `deploy` job's OIDC setup is unverified against a real Databricks
+  workspace.** It needs a Service Principal already federated to your GitHub
+  repo's OIDC issuer (Databricks-side setup, not something this workflow does
+  for you), and a `databricks_host` secret on the *calling* repo. Confirm the
+  exact `DATABRICKS_AUTH_TYPE` value and `databricks/setup-cli` usage (pinned
+  to `v1.12.1` here — bump deliberately) against Databricks's current OIDC
+  docs before relying on this in production.
+- **No Unity Catalog, secrets, cluster policies, or endpoints are exercised
+  anywhere in this framework** — the local container has none of the
+  Databricks control plane. This is by design (see the linked design doc), not
+  a gap to file an issue about.
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add README.md

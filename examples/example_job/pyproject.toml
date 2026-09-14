@@ -1,0 +1,21 @@
+[project]
+name = "example-job"
+version = "0.1.0"
+description = "Reference Databricks Job used to demonstrate databricks-local-ci"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+example-job = "example_job.main:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<10",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
