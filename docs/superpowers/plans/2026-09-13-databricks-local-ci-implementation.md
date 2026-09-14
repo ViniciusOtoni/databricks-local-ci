@@ -240,7 +240,29 @@ depends on it.
 
 **Files:**
 - Create: `docker/Dockerfile`
+- Create: `.dockerignore`
 - Create: `docker/smoke_test.py`
+
+- [ ] **Step 0: Write the build-context ignore file**
+
+`.dockerignore` at the **repo root** (Docker only auto-applies a `.dockerignore`
+found in the build context directory — Step 3's build command uses `-f
+docker/Dockerfile .`, so the context is the repo root, not `docker/`; a
+`docker/.dockerignore` would silently do nothing). Without this, the whole repo —
+including the multi-hundred-MB host `.venv/` — gets sent to the Docker daemon on
+every build:
+```
+.venv/
+.git/
+.worktrees/
+docs/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+```
 
 - [ ] **Step 1: Write the Dockerfile**
 
@@ -248,11 +270,20 @@ depends on it.
 ```dockerfile
 FROM databricksruntime/python:15.4-LTS
 
-RUN pip install pyspark==3.5.3 delta-spark==3.2.1 pytest build \
+RUN pip install --no-cache-dir pyspark==3.5.3 delta-spark==3.2.1 "pytest>=8,<10" "build>=1.0,<2" \
     && ln -sf "$(command -v python3.11)" /usr/local/bin/python
+
+RUN python -c "from delta import configure_spark_with_delta_pip; from pyspark.sql import SparkSession; b = SparkSession.builder.appName('warm-cache').master('local[1]').config('spark.sql.extensions', 'io.delta.sql.DeltaSparkSessionExtension').config('spark.sql.catalog.spark_catalog', 'org.apache.spark.sql.delta.catalog.DeltaCatalog'); s = configure_spark_with_delta_pip(b).getOrCreate(); s.stop()"
 
 WORKDIR /workspace
 ```
+
+(The second `RUN` pre-warms Delta's Ivy/Maven dependency cache into the image layer
+at build time. Without it, `configure_spark_with_delta_pip` re-resolves the Delta
+JAR from Maven Central on every single `docker run` — a real reliability and speed
+cost for a framework whose whole point is fast, dependency-free local testing.
+`pytest`/`build` are pinned to match `pyproject.toml`'s dev extras, so the container
+never silently drifts from what Task 1 validated on the host.)
 
 (Corrected after Task 3 implementation surfaced this empirically: unlike the base
 Databricks Runtime service, the `databricksruntime/python` *Docker image* does not
@@ -314,10 +345,21 @@ Expected: last line of output is `SMOKE_OK`.
 conversion — if you see something like `ls: cannot access '/workspace/docker'`,
 prefix the command with `MSYS_NO_PATHCONV=1`.)
 
+- [ ] **Step 4b: Confirm the Delta JAR cache warm-up actually removed the network dependency**
+
+```bash
+docker run --rm --network none -v "$(pwd)/docker:/workspace/docker" databricks-local-ci:15.4-lts \
+  python docker/smoke_test.py
+```
+Expected: still prints `SMOKE_OK`, with no network access at all (`--network none`).
+If this fails but Step 4 (with network) passed, the Step 1 cache warm-up isn't
+actually caching what `smoke_test.py` resolves at runtime — investigate before
+moving on, since every later task's pytest run depends on this working offline.
+
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docker/Dockerfile docker/smoke_test.py
+git add docker/Dockerfile .dockerignore docker/smoke_test.py
 git commit -m "feat: add DBR-based Docker image and smoke test"
 ```
 
