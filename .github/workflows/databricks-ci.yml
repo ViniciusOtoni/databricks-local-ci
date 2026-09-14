@@ -23,13 +23,21 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout caller repo
+        uses: actions/checkout@v4
+
+      - name: Checkout databricks-local-ci framework
+        uses: actions/checkout@v4
+        with:
+          repository: ViniciusOtoni/databricks-local-ci
+          ref: master
+          path: .databricks-local-ci
 
       - name: Build DBR-based test image
         run: |
           docker build -t databricks-local-ci:${{ inputs.dbr_version }} \
             --build-arg DBR_TAG=${{ inputs.dbr_version }} \
-            -f docker/Dockerfile .
+            -f .databricks-local-ci/docker/Dockerfile .databricks-local-ci
 
       - name: Start build container
         run: |
