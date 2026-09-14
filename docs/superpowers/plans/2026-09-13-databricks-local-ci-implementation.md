@@ -712,7 +712,7 @@ table the subprocess wrote — a genuine execution of the shipped artifact.
 **Files:**
 - Test: `examples/example_job/tests/test_integration.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `examples/example_job/tests/test_integration.py`:
 ```python
@@ -747,7 +747,7 @@ def test_example_job_real_run_writes_expected_summary(local_spark_session, tmp_p
 CI, and a diagnostic message on the stdout assertion for symmetry with the
 returncode check above it.)
 
-- [ ] **Step 2: Run the test inside the container**
+- [x] **Step 2: Run the test inside the container**
 
 Unlike every other TDD cycle in this plan, there's no red state to observe here:
 `transform.py` (Task 5) and `main.py` (Task 6) already exist and are already
@@ -762,7 +762,7 @@ here is expected. Common causes: the `pip install -e .` steps didn't run (confir
 both `--no-deps -e /workspace/project` and `-e .` succeeded), or Task 5/6 weren't
 actually committed to this branch.
 
-- [ ] **Step 3: Run the full example test suite together as a final check**
+- [x] **Step 3: Run the full example test suite together as a final check**
 
 ```bash
 docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/example_job \
@@ -770,7 +770,7 @@ docker run --rm -v "$(pwd):/workspace/project" -w /workspace/project/examples/ex
 ```
 Expected: `2 passed` (`test_transform.py` and `test_integration.py`).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add examples/example_job/tests/test_integration.py
