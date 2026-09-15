@@ -20,3 +20,14 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.databricks-local-ci]
+entry_point = "example_job.main"
+
+[tool.databricks-local-ci.sample_input]
+columns = ["category", "amount"]
+rows = [
+    ["books", 10.0],
+    ["books", 5.0],
+    ["toys", 20.0],
+]

@@ -1320,3 +1320,64 @@ Run once Docker Desktop is confirmed working:
    attempted, and that `deploy` fails cleanly on missing OIDC setup rather
    than silently no-opping — expected until the Databricks-side OIDC
    federation is configured.
+
+**Update, done for real:** all five items above were subsequently verified
+against a genuinely separate consumer repo
+([`databricks-job-example`](https://github.com/ViniciusOtoni/databricks-job-example)),
+not just simulated locally. That process found and fixed three real bugs no
+amount of in-repo testing could have caught (documented as their own PRs on
+`databricks-local-ci`): `id-token: write` not propagating to a reusable
+workflow's job without the *caller* also granting it; `docker build -f
+docker/Dockerfile .` resolving against the caller's checkout instead of this
+framework's own (fixed by checking out this repo a second time, into
+`.databricks-local-ci/`); and Databricks Free Edition being unable to use
+Service Principal/OIDC federation at all (no account console), requiring a
+`pat` auth fallback in `databricks-cd.yml`.
+
+---
+
+## Task 10 revision: automatic real-run test from declarative config
+
+Requested directly by the user after using the framework for real: writing
+`test_integration.py` by hand for every consumer project defeated the "no
+Python test code" goal — the framework's tests were catching real bugs, but
+only after someone hand-wrote a subprocess-invoking test, which is exactly
+the kind of boilerplate this project exists to remove.
+
+**Files:**
+- Create: `src/databricks_local_ci/auto_real_run.py`
+- Modify: `pyproject.toml` — bump `requires-python` to `>=3.11` (needed for
+  stdlib `tomllib`), register the new module as a second `pytest11` entry
+  point alongside the renamed `databricks_local_ci_fixtures` one
+- Modify: `examples/example_job/pyproject.toml` — add a
+  `[tool.databricks-local-ci]` block
+- Delete: `examples/example_job/tests/test_integration.py` — superseded by
+  the auto-generated test
+- Modify: `README.md` — document the new config block as the default path,
+  keep `run_entrypoint` documented for custom assertions
+
+**Design:** a `pytest11` plugin implementing `pytest_collection_modifyitems`
+reads `[tool.databricks-local-ci]` from the project's `pyproject.toml` (via
+`config.rootpath`, using stdlib `tomllib` — no new dependency) and, if
+present, builds a Delta table from the declared `sample_input`, then
+programmatically injects a test item via `pytest.Module.from_parent` /
+`pytest.Function.from_parent(..., callobj=...)` — the standard, documented
+pytest mechanism for a plugin to contribute a test with no backing file in
+the consumer's repo. The injected test still gets normal fixture injection
+(`local_spark_session`, `tmp_path`) and calls the same
+`subprocess_runner.run_entrypoint` primitive a hand-written test would,
+asserting only `returncode == 0` and a non-empty output table — deliberately
+not deeper business-logic assertions, which stay the job of the consumer's
+own unit tests against their transform functions.
+
+**Verified:** rebuilt `example_job`'s install from local source (not the
+published git dependency, to actually exercise the uncommitted plugin code),
+ran `pytest tests/ -v` — the auto-generated
+`test_databricks_local_ci_auto_real_run` is collected and passes alongside
+the existing `test_transform.py`, with `test_integration.py` deleted and
+never missed:
+```
+tests/test_transform.py::test_summarize_sales_by_category PASSED
+::auto_real_run.py::test_databricks_local_ci_auto_real_run PASSED
+2 passed in 56.37s
+```
