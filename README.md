@@ -9,17 +9,47 @@ notebooks, or Lakeflow pipelines in v1).
 
 ## What your project must provide
 
-- A single CLI entry point (a `console_scripts` entry, invoked as
-  `python -m your_package.main ...`) — the same one your Databricks Job task
-  invokes in production.
+- A single CLI entry point (invoked as `python -m your_package.main
+  --input-path ... --output-path ...`) — the same one your Databricks Job
+  task invokes in production. `--input-path`/`--output-path` are a fixed
+  convention this framework relies on, not just a suggestion.
 - Table/data locations passed as CLI parameters, never hardcoded — in
   production they're Unity Catalog-governed paths, in tests they're local
   Delta paths.
-- Tests under `tests/`, using the `local_spark_session` and
-  `local_delta_table_path` fixtures (auto-registered once
-  `databricks-local-ci` is installed) plus
-  `databricks_local_ci.subprocess_runner.run_entrypoint` to invoke your real
-  entry point. See `examples/example_job` for a complete reference.
+
+That's it — with those two things in place, you get a real "run the actual
+packaged wheel" test **for free, with no test file to write**. Add this to
+your `pyproject.toml`:
+
+```toml
+[tool.databricks-local-ci]
+entry_point = "your_package.main"
+
+[tool.databricks-local-ci.sample_input]
+columns = ["region", "amount"]
+rows = [
+    ["us-east", 100.0],
+    ["eu-west", 200.0],
+]
+```
+
+Once `databricks-local-ci` is installed, its pytest plugin reads this block
+and injects a test automatically: it builds a Delta table from `sample_input`,
+invokes your entry point as a genuine subprocess with `--input-path`/
+`--output-path` pointing at local temp paths, asserts it exits `0`, and
+asserts it actually wrote a non-empty output table. No `test_integration.py`,
+no manual `run_entrypoint` call — see `examples/example_job/pyproject.toml`
+for the reference. This only proves the packaged artifact *runs*; it can't
+know what "correct" means for your business logic.
+
+For that, keep testing your transform functions directly with the
+`local_spark_session` fixture (also auto-registered) the same way you'd unit
+test any other function — see `examples/example_job/tests/test_transform.py`.
+And if you need an integration test with *custom* assertions beyond "ran and
+wrote something" — e.g. checking exact aggregated values end to end — use
+`databricks_local_ci.subprocess_runner.run_entrypoint` directly in a
+hand-written test; it's the same primitive the auto-generated test uses under
+the hood, just available for you to call yourself.
 
 ## Consuming the workflows
 

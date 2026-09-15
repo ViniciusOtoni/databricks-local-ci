@@ -2,7 +2,7 @@
 name = "databricks-local-ci"
 version = "0.1.0"
 description = "Local CI testkit for validating Databricks Python jobs before deploy"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
@@ -13,7 +13,8 @@ dev = [
 ]
 
 [project.entry-points.pytest11]
-databricks_local_ci = "databricks_local_ci.fixtures"
+databricks_local_ci_fixtures = "databricks_local_ci.fixtures"
+databricks_local_ci_auto_real_run = "databricks_local_ci.auto_real_run"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
