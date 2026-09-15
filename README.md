@@ -5,7 +5,12 @@ inside the exact Databricks Runtime (DBR) version used in production, and
 only deploys via Databricks Asset Bundles if that run succeeds. See
 `docs/superpowers/specs/2026-09-13-databricks-local-ci-design.md` for the
 full design rationale, scope, and known limitations (no Unity Catalog,
-notebooks, or Lakeflow pipelines in v1).
+notebooks, or Lakeflow pipelines in v1). See
+[`docs/cost-efficiency-study.md`](docs/cost-efficiency-study.md) for a
+line-by-line Compute/Storage/Network/Licensing cost comparison — catching a
+bug locally instead of on a 5-node Azure `D`-family cluster saves roughly
+$0.44 and 14 minutes per avoided cloud attempt, scaling linearly with cluster
+size.
 
 ## What your project must provide
 
